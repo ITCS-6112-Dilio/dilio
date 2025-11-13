@@ -1,5 +1,5 @@
 ﻿// src/components/dashboard/RecentActivity.jsx
-const RecentActivity = ({ donations }) => {
+const RecentActivity = ({ donations = [] }) => {
   const styles = {
     section: {
       marginBottom: "20px",
@@ -59,7 +59,7 @@ const RecentActivity = ({ donations }) => {
     
     if (days === 0) return "Today";
     if (days === 1) return "Yesterday";
-    if (days < 7) return +"${days} days ago"+";
+    if (days < 7) return `${days} days ago`;
     return date.toLocaleDateString();
   };
 

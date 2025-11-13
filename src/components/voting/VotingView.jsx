@@ -161,7 +161,7 @@ const VotingView = () => {
           <div key={org.id} style={styles.option}>
             <input
               type="radio"
-              id={+"org-"+"}
+              id={`org-${org.id}`}
               name="vote"
               value={org.id}
               checked={selectedOrg === org.id}
@@ -169,7 +169,7 @@ const VotingView = () => {
               style={styles.radio}
             />
             <label
-              htmlFor={+"org-"+"}
+              htmlFor={`org-${org.id}`}
               style={
                 selectedOrg === org.id
                   ? { ...styles.label, ...styles.labelChecked }

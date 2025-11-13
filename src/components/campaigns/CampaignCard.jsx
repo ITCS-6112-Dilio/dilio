@@ -69,7 +69,7 @@ const CampaignCard = ({ campaign }) => {
       </div>
       <p style={styles.description}>{campaign.description}</p>
       <div style={styles.progressBar}>
-        <div style={{ ...styles.progressFill, width: +"${percentage}%"+" }} />
+        <div style={{ ...styles.progressFill, width: `${percentage}%` }} />
       </div>
       <div style={styles.stats}>
         <span style={styles.statLabel}>

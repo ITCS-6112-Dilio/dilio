@@ -64,7 +64,7 @@ const Dashboard = () => {
     try {
       await saveDonation(donation);
       await loadData();
-      alert(+"✅ Donation Successful!\nYou donated UTF8{roundUpAmount.toFixed(2)}"+");
+      alert('Donation Successful!\nYou donated $' + roundUpAmount.toFixed(2));
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
