@@ -1,7 +1,7 @@
 ﻿// src/components/dashboard/QuickActions.jsx
 import Button from "../Button";
 
-const QuickActions = ({ onMockPurchase, onViewCampaigns, onVote }) => {
+const QuickActions = ({ onMockPurchase, onViewCampaigns, onVote, onCreateCampaign, onAdminPanel }) => {
   const styles = {
     section: {
       marginBottom: "20px",
@@ -23,9 +23,19 @@ const QuickActions = ({ onMockPurchase, onViewCampaigns, onVote }) => {
       <Button variant="secondary" onClick={onViewCampaigns} style={{ marginBottom: "10px" }}>
         📢 Browse Campaigns
       </Button>
-      <Button variant="secondary" onClick={onVote}>
+      <Button variant="secondary" onClick={onVote} style={{ marginBottom: "10px" }}>
         🗳️ Weekly Voting
       </Button>
+      {onCreateCampaign && (
+        <Button variant="success" onClick={onCreateCampaign} style={{ marginBottom: "10px" }}>
+          ➕ Create Campaign
+        </Button>
+      )}
+      {onAdminPanel && (
+        <Button variant="warning" onClick={onAdminPanel} style={{ marginBottom: "10px" }}>
+          ⚙️ Admin Panel
+        </Button>
+      )}
     </div>
   );
 };

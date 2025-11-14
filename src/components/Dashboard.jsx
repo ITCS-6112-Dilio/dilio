@@ -11,10 +11,15 @@ import BottomNav from "./dashboard/BottomNav";
 import CampaignsView from "./campaigns/CampaignsView";
 import VotingView from "./voting/VotingView";
 import ProfileView from "./profile/ProfileView";
+import CreateCampaignView from "./campaigns/CreateCampaignView";
+import AdminView from "./admin/AdminView";
 import {
   getDonations,
   saveDonation,
   calculateStats,
+  deleteDonation,
+  updateDonation,
+  getUserRole,
 } from "../services/donationService";
 
 const Dashboard = () => {
@@ -24,15 +29,25 @@ const Dashboard = () => {
   const [stats, setStats] = useState({ totalDonated: 0, points: 0, streak: 0 });
   const [loading, setLoading] = useState(true);
   const [pendingPurchase, setPendingPurchase] = useState(null);
+  const [userRole, setUserRole] = useState("student");
 
   const user = auth.currentUser;
 
   useEffect(() => {
     loadData();
     checkPendingPurchase();
+    loadUserRole();
   }, []);
 
-  // Safe Chrome access helpers
+  const loadUserRole = async () => {
+    try {
+      const role = await getUserRole(user.uid);
+      setUserRole(role);
+    } catch (error) {
+      console.error("Error loading user role:", error);
+    }
+  };
+
   const safeChrome = {
     get: (key, callback) => {
       if (typeof chrome !== "undefined" && chrome?.storage?.local) {
@@ -82,6 +97,12 @@ const Dashboard = () => {
     const purchaseAmount = pendingPurchase.amount;
     const roundUpAmount = Math.ceil(purchaseAmount) - purchaseAmount;
 
+    if (roundUpAmount === 0) {
+      alert("This purchase is already a whole dollar amount!");
+      handleDeclineDonation();
+      return;
+    }
+
     const donation = {
       amount: roundUpAmount,
       purchaseAmount: purchaseAmount,
@@ -94,17 +115,10 @@ const Dashboard = () => {
     try {
       await saveDonation(donation);
       await loadData();
-
-      // Clear pending purchase
       safeChrome.remove(["pendingPurchase"]);
       safeChrome.clearBadge();
       setPendingPurchase(null);
-
-      alert(
-        "Thank you! Your donation of $" +
-          roundUpAmount.toFixed(2) +
-          " has been recorded."
-      );
+      alert("Thank you! Donation of \\$" + roundUpAmount.toFixed(2) + " recorded!");
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
@@ -128,6 +142,11 @@ const Dashboard = () => {
 
     const roundUpAmount = Math.ceil(purchaseAmount) - purchaseAmount;
 
+    if (roundUpAmount === 0) {
+      alert("This is already a whole dollar amount!");
+      return;
+    }
+
     const donation = {
       amount: roundUpAmount,
       purchaseAmount: purchaseAmount,
@@ -139,9 +158,42 @@ const Dashboard = () => {
     try {
       await saveDonation(donation);
       await loadData();
-      alert("Donation Successful!\nYou donated $" + roundUpAmount.toFixed(2));
+      alert("Donation Successful!\\nYou donated \\$" + roundUpAmount.toFixed(2));
     } catch (error) {
       alert("Error saving donation: " + error.message);
+    }
+  };
+
+  const handleDeleteDonation = async (donationId) => {
+    if (!window.confirm("Are you sure you want to delete this donation?")) {
+      return;
+    }
+
+    try {
+      await deleteDonation(donationId);
+      await loadData();
+      alert("Donation deleted successfully");
+    } catch (error) {
+      alert("Error deleting donation: " + error.message);
+    }
+  };
+
+  const handleEditDonation = async (donation) => {
+    const newAmount = prompt("Enter new donation amount:", donation.amount.toFixed(2));
+    if (!newAmount) return;
+
+    const amount = parseFloat(newAmount);
+    if (isNaN(amount) || amount <= 0) {
+      alert("Please enter a valid amount");
+      return;
+    }
+
+    try {
+      await updateDonation(donation.id, { amount });
+      await loadData();
+      alert("Donation updated successfully");
+    } catch (error) {
+      alert("Error updating donation: " + error.message);
     }
   };
 
@@ -155,18 +207,19 @@ const Dashboard = () => {
   const styles = {
     container: {
       width: "100%",
-      minHeight: "600px",
+      height: "600px",
       background: "#ffffff",
-      fontFamily:
-        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       display: "flex",
       flexDirection: "column",
+      overflow: "hidden",
     },
     header: {
       padding: "16px 20px",
       background: "linear-gradient(135deg, #2563eb, #3b82f6)",
       color: "white",
       boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
+      flexShrink: 0,
     },
     headerTitle: {
       fontSize: "20px",
@@ -175,7 +228,10 @@ const Dashboard = () => {
     },
     content: {
       padding: "20px",
-      paddingBottom: "80px",
+      paddingBottom: "20px",
+      flex: 1,
+      overflowY: "auto",
+      overflowX: "hidden",
     },
     userInfo: {
       display: "flex",
@@ -206,6 +262,15 @@ const Dashboard = () => {
     userEmail: {
       fontSize: "12px",
       color: "#64748b",
+    },
+    roleBadge: {
+      fontSize: "10px",
+      padding: "2px 8px",
+      background: "#e0e7ff",
+      color: "#3730a3",
+      borderRadius: "12px",
+      marginLeft: "8px",
+      textTransform: "uppercase",
     },
     purchaseAlert: {
       background: "#eff6ff",
@@ -277,29 +342,16 @@ const Dashboard = () => {
             <div style={styles.purchaseAlert}>
               <div style={styles.purchaseTitle}>🛒 Purchase Detected!</div>
               <div style={styles.purchaseAmount}>
-                ${pendingPurchase.amount.toFixed(2)}
+                \\
               </div>
-              <p
-                style={{
-                  fontSize: "14px",
-                  marginBottom: "12px",
-                  color: "#64748b",
-                }}
-              >
-                Round up to ${Math.ceil(pendingPurchase.amount)} and donate{" "}
+              <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b" }}>
+                Round up to \\ and donate{" "}
                 <strong style={{ color: "#2563eb" }}>
-                  $
-                  {(
-                    Math.ceil(pendingPurchase.amount) -
-                    pendingPurchase.amount
-                  ).toFixed(2)}
+                  \\
                 </strong>
               </p>
               <div style={styles.buttonGroup}>
-                <button
-                  style={styles.confirmBtn}
-                  onClick={handleConfirmDonation}
-                >
+                <button style={styles.confirmBtn} onClick={handleConfirmDonation}>
                   Confirm Donation
                 </button>
                 <button style={styles.declineBtn} onClick={handleDeclineDonation}>
@@ -311,9 +363,10 @@ const Dashboard = () => {
 
           <div style={styles.userInfo}>
             <div style={styles.avatarCircle}>{getInitials(user.email)}</div>
-            <div>
+            <div style={{ flex: 1 }}>
               <div style={styles.userName}>
                 {user.displayName || user.email.split("@")[0]}
+                <span style={styles.roleBadge}>{userRole}</span>
               </div>
               <div style={styles.userEmail}>{user.email}</div>
             </div>
@@ -325,21 +378,25 @@ const Dashboard = () => {
             onMockPurchase={handleMockPurchase}
             onViewCampaigns={() => setCurrentView("campaigns")}
             onVote={() => setCurrentView("voting")}
+            onCreateCampaign={userRole === "organizer" || userRole === "admin" ? () => setCurrentView("create-campaign") : null}
+            onAdminPanel={userRole === "admin" ? () => setCurrentView("admin") : null}
           />
 
-          <RecentActivity donations={donations} />
+          <RecentActivity 
+            donations={donations}
+            onDelete={handleDeleteDonation}
+            onEdit={handleEditDonation}
+          />
         </div>
       )}
 
       {currentView === "campaigns" && <CampaignsView />}
-
       {currentView === "voting" && <VotingView />}
+      {currentView === "create-campaign" && <CreateCampaignView onBack={() => setCurrentView("dashboard")} userId={user.uid} />}
+      {currentView === "admin" && <AdminView onBack={() => setCurrentView("dashboard")} />}
+      {currentView === "profile" && <ProfileView user={user} onLogout={handleLogout} userRole={userRole} onRoleChange={loadUserRole} />}
 
-      {currentView === "profile" && (
-        <ProfileView user={user} onLogout={handleLogout} />
-      )}
-
-      <BottomNav currentView={currentView} onNavigate={setCurrentView} />
+      <BottomNav currentView={currentView} onNavigate={setCurrentView} userRole={userRole} />
     </div>
   );
 };

@@ -48,7 +48,9 @@ const VotingView = () => {
   const styles = {
     container: {
       padding: "20px",
-      paddingBottom: "80px",
+      paddingBottom: "20px",
+      height: "520px",
+      overflowY: "auto",
     },
     header: {
       marginBottom: "20px",
@@ -153,7 +155,7 @@ const VotingView = () => {
           Vote for which organization should receive pooled donations
         </p>
         <p style={styles.poolAmount}>
-          Current Pool: ${session.poolAmount.toFixed(2)}
+          Current Pool: {session.pool ?? 0}
         </p>
       </div>
       <div style={styles.options}>

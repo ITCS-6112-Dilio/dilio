@@ -25,7 +25,9 @@ const CampaignsView = () => {
   const styles = {
     container: {
       padding: "20px",
-      paddingBottom: "80px",
+      paddingBottom: "20px",
+      height: "520px",
+      overflowY: "auto",
     },
     header: {
       marginBottom: "20px",

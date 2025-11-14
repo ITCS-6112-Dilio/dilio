@@ -1,5 +1,5 @@
 ﻿// src/components/dashboard/BottomNav.jsx
-const BottomNav = ({ currentView, onNavigate }) => {
+const BottomNav = ({ currentView, onNavigate, userRole }) => {
   const styles = {
     nav: {
       position: "fixed",
@@ -36,6 +36,10 @@ const BottomNav = ({ currentView, onNavigate }) => {
     { id: "voting", icon: "🗳️", label: "Vote" },
     { id: "profile", icon: "👤", label: "Profile" },
   ];
+
+  if (userRole === "admin") {
+    navItems.push({ id: "admin", icon: "⚙️", label: "Admin" });
+  }
 
   return (
     <nav style={styles.nav}>
