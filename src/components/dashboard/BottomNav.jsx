@@ -1,5 +1,7 @@
 ﻿// src/components/dashboard/BottomNav.jsx
-const BottomNav = ({ currentView, onNavigate, userRole }) => {
+import { useUser } from "../../context/UserContext";
+
+const BottomNav = ({ currentView, onNavigate }) => {
   const styles = {
     nav: {
       position: "fixed",
@@ -30,6 +32,8 @@ const BottomNav = ({ currentView, onNavigate, userRole }) => {
     },
   };
 
+  const { user } = useUser();
+
   const navItems = [
     { id: "dashboard", icon: "🏠", label: "Home" },
     { id: "campaigns", icon: "📢", label: "Campaigns" },
@@ -37,7 +41,7 @@ const BottomNav = ({ currentView, onNavigate, userRole }) => {
     { id: "profile", icon: "👤", label: "Profile" },
   ];
 
-  if (userRole === "admin") {
+  if (user.role === "admin") {
     navItems.push({ id: "admin", icon: "⚙️", label: "Admin" });
   }
 

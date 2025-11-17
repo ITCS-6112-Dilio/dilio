@@ -10,7 +10,6 @@ import {
   doc,
   deleteDoc,
   updateDoc,
-  getDoc,
   setDoc
 } from "firebase/firestore";
 import app from "./firebase";
@@ -213,19 +212,6 @@ export const submitVote = async (userId, organizationId, sessionId) => {
 };
 
 // USER ROLES
-export const getUserRole = async (userId) => {
-  try {
-    const userDoc = await getDoc(doc(db, "users", userId));
-    if (userDoc.exists()) {
-      return userDoc.data().role || "student";
-    }
-    return "student";
-  } catch (error) {
-    console.error("Error getting user role:", error);
-    return "student";
-  }
-};
-
 export const updateUserRole = async (userId, role) => {
   try {
     await setDoc(doc(db, "users", userId), { role, updatedAt: new Date() }, { merge: true });

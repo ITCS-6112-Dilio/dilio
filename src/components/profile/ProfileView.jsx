@@ -4,8 +4,10 @@ import { updateProfile } from "firebase/auth";
 import { updateUserRole, requestOrganizerRole } from "../../services/donationService";
 import Input from "../Input";
 import Button from "../Button";
+import { useUser } from "../../context/UserContext";
 
-const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
+const ProfileView = ({ onLogout }) => {
+  const { user, setUser } = useUser();
   const [displayName, setDisplayName] = useState(user.displayName || "");
   const [loading, setLoading] = useState(false);
   const [requestReason, setRequestReason] = useState("");
@@ -19,6 +21,7 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
     setLoading(true);
     try {
       await updateProfile(user, { displayName: displayName.trim() });
+      setUser(prev => ({ ...prev, displayName: displayName.trim() }));
       alert("✅ Profile updated successfully!");
     } catch (error) {
       alert("Error updating profile: " + error.message);
@@ -49,8 +52,8 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
     if (window.confirm("Make yourself an admin? (Dev only)")) {
       try {
         await updateUserRole(user.uid, "admin");
+        setUser(prev => ({ ...prev, role: "admin" }));
         alert("✅ You are now an admin!");
-        onRoleChange();
       } catch (error) {
         alert("Error: " + error.message);
       }
@@ -126,7 +129,7 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
       <div style={styles.section}>
         <label style={styles.label}>Current Role</label>
         <div>
-          <span style={styles.roleBadge}>{userRole}</span>
+          <span style={styles.roleBadge}>{user.role}</span>
         </div>
       </div>
 
@@ -144,7 +147,7 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
         {loading ? "Saving..." : "Save Changes"}
       </Button>
 
-      {userRole === "student" && (
+      {user.role === "student" && (
         <div style={{ marginTop: "20px" }}>
           <h3 style={{ fontSize: "14px", marginBottom: "8px", fontWeight: 600 }}>
             Request Organizer Role
@@ -168,10 +171,17 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
         <Button variant="warning" onClick={handleMakeAdmin} style={{ marginBottom: "8px" }}>
           Make Me Admin (Dev)
         </Button>
+        <Button variant="info" style={{ marginTop: "8px" }} onClick={async () => {
+          await updateUserRole(user.uid, "student");
+          setUser(prev => ({ ...prev, role: "student" }));
+          alert("✅ You are now a student!");
+        }}>
+          Make Me Student (Dev)
+        </Button>
         <Button variant="info" onClick={async () => {
           await updateUserRole(user.uid, "organizer");
+          setUser(prev => ({ ...prev, role: "organizer" }));
           alert("✅ You are now an organizer!");
-          onRoleChange();
         }}>
           Make Me Organizer (Dev)
         </Button>

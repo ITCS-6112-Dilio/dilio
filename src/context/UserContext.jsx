@@ -11,7 +11,7 @@ const UserContext = createContext();
  * merged with a `role` field from Firestore (users/{uid}.role).
  */
 export const UserProvider = ({ children }) => {
-  const [user, setUser] = useState(null); // merged user + role
+  const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
   const loadRole = async (uid) => {
@@ -49,7 +49,7 @@ export const UserProvider = ({ children }) => {
   }, []);
 
   return (
-    <UserContext.Provider value={{ user, loading }}>
+    <UserContext.Provider value={{ user, setUser, loading }}>
       {children}
     </UserContext.Provider>
   );
