@@ -1,8 +1,8 @@
-{
+﻿{
   "manifest_version": 3,
-  "name": "Dilio Extension",
+  "name": "Dilio - Campus Donations",
   "version": "0.1.0",
-  "description": "A React-based browser extension",
+  "description": "Round up your purchases to support campus causes",
   "action": {
     "default_popup": "index.html",
     "default_icon": {
@@ -16,5 +16,25 @@
     "48": "logo192.png",
     "128": "logo512.png"
   },
-  "permissions": []
+  "permissions": ["storage", "activeTab"],
+  "host_permissions": ["<all_urls>"],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.amazon.com/*",
+        "*://*.walmart.com/*",
+        "*://*.target.com/*",
+        "*://*.ebay.com/*",
+        "*://*.etsy.com/*",
+        "*://*.bestbuy.com/*",
+        "*://*/checkout/*",
+        "*://*/cart/*"
+      ],
+      "js": ["content-script.js"],
+      "run_at": "document_idle"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  }
 }
