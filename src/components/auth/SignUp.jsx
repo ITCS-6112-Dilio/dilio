@@ -1,6 +1,8 @@
+// src/components/auth/SignUp.jsx
 import { useState } from "react";
-import { auth } from "../../services/firebase";
+import { auth, db } from "../../services/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc } from "firebase/firestore";
 import Card from "../Card";
 import Input from "../Input";
 import Button from "../Button";
@@ -91,7 +93,15 @@ const SignUp = () => {
     setLoading(true);
 
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
+      const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      const uid = userCred.user.uid;
+
+      // Create Firestore user profile with default role student
+      await setDoc(doc(db, "users", uid), {
+        email,
+        role: "student",
+        createdAt: Date.now()
+      });
 
       setSuccessMessage("Sign Up successful! You can now log in.");
 
