@@ -3,7 +3,7 @@ console.log('Dilio: Background service worker loaded');
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('Dilio: Message received:', request);
-  
+
   if (request.type === 'CHECKOUT_DETECTED') {
     // Store the purchase info
     chrome.storage.local.set({
@@ -13,12 +13,25 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         timestamp: Date.now()
       }
     });
-    
+
     // Show badge to indicate pending donation
     chrome.action.setBadgeText({ text: '!' });
     chrome.action.setBadgeBackgroundColor({ color: '#2563eb' });
-    
+
     // Open the popup automatically
     chrome.action.openPopup();
   }
 });
+
+// background.js
+chrome.runtime.onInstalled.addListener(() => {
+  chrome.action.setBadgeText({ text: '' });
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.pendingPurchase) {
+    chrome.action.setBadgeText({ text: '!' });
+    chrome.action.setBadgeBackgroundColor({ color: '#2563eb' });
+  }
+});
+
