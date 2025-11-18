@@ -1,22 +1,22 @@
 ﻿// src/services/donationService.js
-import { 
-  getFirestore, 
-  collection, 
-  addDoc, 
-  query, 
-  where, 
-  orderBy, 
-  getDocs,
-  doc,
+import {
+  addDoc,
+  collection,
   deleteDoc,
-  updateDoc,
+  doc,
   getDoc,
-  setDoc
+  getDocs,
+  getFirestore,
+  orderBy,
+  query,
+  updateDoc,
+  where,
 } from "firebase/firestore";
 import app from "./firebase";
 
 const db = getFirestore(app);
 
+// DONATIONS
 export const saveDonation = async (donation) => {
   try {
     const docRef = await addDoc(collection(db, "donations"), {
@@ -35,12 +35,12 @@ export const getDonations = async (userId) => {
     const q = query(
       collection(db, "donations"),
       where("userId", "==", userId),
-      orderBy("timestamp", "desc")
+      orderBy("timestamp", "desc"),
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
     }));
   } catch (error) {
     console.error("Error getting donations:", error);
@@ -72,7 +72,7 @@ export const calculateStats = (donations) => {
   let streak = 0;
   if (donations.length > 0) {
     const today = new Date().setHours(0, 0, 0, 0);
-    const sortedDonations = [...donations].sort((a, b) => b.timestamp - a.timestamp);
+    const sortedDonations = [ ...donations ].sort((a, b) => b.timestamp - a.timestamp);
     let currentDate = today;
     for (const donation of sortedDonations) {
       const donationDate = new Date(donation.timestamp).setHours(0, 0, 0, 0);
@@ -117,21 +117,53 @@ export const getAllCampaigns = async (status = "approved") => {
   try {
     const q = query(
       collection(db, "campaigns"),
-      where("status", "==", status)
+      where("status", "==", status),
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
     }));
   } catch (error) {
     console.error("Error getting campaigns:", error);
     // Return mock data if Firestore fails
     return [
-      { id: "1", name: "Campus Food Pantry", description: "Supporting students facing food insecurity", goal: 5000, raised: 2340, category: "Community", status: "approved" },
-      { id: "2", name: "STEM Scholarship Fund", description: "Scholarships for underrepresented students in STEM", goal: 10000, raised: 4560, category: "Education", status: "approved" },
-      { id: "3", name: "Mental Health Awareness", description: "Student wellness and mental health support", goal: 3000, raised: 1200, category: "Wellness", status: "approved" },
-      { id: "4", name: "Green Campus Initiative", description: "Sustainability and environmental projects", goal: 4000, raised: 1800, category: "Environment", status: "approved" },
+      {
+        id: "1",
+        name: "Campus Food Pantry",
+        description: "Supporting students facing food insecurity",
+        goal: 5000,
+        raised: 2340,
+        category: "Community",
+        status: "approved",
+      },
+      {
+        id: "2",
+        name: "STEM Scholarship Fund",
+        description: "Scholarships for underrepresented students in STEM",
+        goal: 10000,
+        raised: 4560,
+        category: "Education",
+        status: "approved",
+      },
+      {
+        id: "3",
+        name: "Mental Health Awareness",
+        description: "Student wellness and mental health support",
+        goal: 3000,
+        raised: 1200,
+        category: "Wellness",
+        status: "approved",
+      },
+      {
+        id: "4",
+        name: "Green Campus Initiative",
+        description: "Sustainability and environmental projects",
+        goal: 4000,
+        raised: 1800,
+        category: "Environment",
+        status: "approved",
+      },
     ];
   }
 };
@@ -140,12 +172,12 @@ export const getPendingCampaigns = async () => {
   try {
     const q = query(
       collection(db, "campaigns"),
-      where("status", "==", "pending")
+      where("status", "==", "pending"),
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
     }));
   } catch (error) {
     console.error("Error getting pending campaigns:", error);
@@ -154,11 +186,11 @@ export const getPendingCampaigns = async () => {
 };
 
 export const approveCampaign = async (campaignId) => {
-  await updateCampaign(campaignId, { status: "approved" });
+  await updateCampaign(campaignId, { status: "approved", updatedAt: new Date() });
 };
 
 export const rejectCampaign = async (campaignId) => {
-  await updateCampaign(campaignId, { status: "rejected" });
+  await updateCampaign(campaignId, { status: "rejected", updatedAt: new Date() });
 };
 
 // VOTING
@@ -167,15 +199,15 @@ export const getVotingSession = async () => {
     // Get current week's voting session
     const q = query(
       collection(db, "votingSessions"),
-      where("active", "==", true)
+      where("active", "==", true),
     );
     const querySnapshot = await getDocs(q);
-    
+
     if (!querySnapshot.empty) {
       const doc = querySnapshot.docs[0];
       return { id: doc.id, ...doc.data() };
     }
-    
+
     // Return mock if none exists
     return {
       id: "week-45-2025",
@@ -204,7 +236,13 @@ export const submitVote = async (userId, organizationId, sessionId) => {
     if (!querySnapshot.empty) {
       throw new Error("You have already voted in this session");
     }
-    await addDoc(collection(db, "votes"), { userId, organizationId, sessionId, timestamp: Date.now(), createdAt: new Date() });
+    await addDoc(collection(db, "votes"), {
+      userId,
+      organizationId,
+      sessionId,
+      timestamp: Date.now(),
+      createdAt: new Date(),
+    });
     return true;
   } catch (error) {
     console.error("Error submitting vote:", error);
@@ -213,22 +251,9 @@ export const submitVote = async (userId, organizationId, sessionId) => {
 };
 
 // USER ROLES
-export const getUserRole = async (userId) => {
-  try {
-    const userDoc = await getDoc(doc(db, "users", userId));
-    if (userDoc.exists()) {
-      return userDoc.data().role || "student";
-    }
-    return "student";
-  } catch (error) {
-    console.error("Error getting user role:", error);
-    return "student";
-  }
-};
-
 export const updateUserRole = async (userId, role) => {
   try {
-    await setDoc(doc(db, "users", userId), { role, updatedAt: new Date() }, { merge: true });
+    await updateDoc(doc(db, "users", userId), { role, updatedAt: new Date() });
   } catch (error) {
     console.error("Error updating user role:", error);
     throw error;
@@ -242,11 +267,72 @@ export const requestOrganizerRole = async (userId, reason) => {
       requestedRole: "organizer",
       reason,
       status: "pending",
-      createdAt: new Date()
+      createdAt: new Date(),
     });
   } catch (error) {
     console.error("Error requesting organizer role:", error);
     throw error;
+  }
+};
+
+export const getPendingRoleRequests = async () => {
+  try {
+    const q = query(
+      collection(db, "roleRequests"),
+      where("status", "==", "pending"),
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error("Error getting pending role requests:", error);
+    return [];
+  }
+};
+
+export const approveRoleRequest = async (requestId, userId, role) => {
+  try {
+    await updateDoc(doc(db, "users", userId), {
+      role,
+      updatedAt: new Date(),
+    });
+
+    await updateDoc(doc(db, "roleRequests", requestId), {
+      status: "approved",
+      updatedAt: new Date(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error approving role request:", error);
+    return { success: false, error };
+  }
+};
+
+export const rejectRoleRequest = async (requestId) => {
+  try {
+    await updateDoc(doc(db, "roleRequests", requestId), {
+      status: "rejected",
+      updatedAt: new Date(),
+    });
+
+    return { success: true };
+  } catch (error) {
+    console.error("Error rejecting role request:", error);
+    return { success: false, error };
+  }
+};
+
+// USER
+export const getUserById = async (userId) => {
+  try {
+    const querySnapshot = await getDoc(doc(db, "users", userId));
+    return querySnapshot.exists() ? querySnapshot.data() : null;
+  } catch (error) {
+    console.error("Error fetching user:", error);
+    return null;
   }
 };
 
@@ -255,12 +341,12 @@ export const getUserBadges = async (userId) => {
   try {
     const q = query(
       collection(db, "badges"),
-      where("userId", "==", userId)
+      where("userId", "==", userId),
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
     }));
   } catch (error) {
     console.error("Error getting badges:", error);
@@ -273,7 +359,7 @@ export const awardBadge = async (userId, badgeType) => {
     await addDoc(collection(db, "badges"), {
       userId,
       badgeType,
-      awardedAt: new Date()
+      awardedAt: new Date(),
     });
   } catch (error) {
     console.error("Error awarding badge:", error);
@@ -288,7 +374,7 @@ export const getWeeklyReport = async () => {
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
-      ...doc.data()
+      ...doc.data(),
     }));
   } catch (error) {
     console.error("Error getting weekly reports:", error);
@@ -302,7 +388,7 @@ export const closeWeeklyPool = async (weekId, winnerId, totalAmount) => {
       weekId,
       winnerId,
       totalAmount,
-      closedAt: new Date()
+      closedAt: new Date(),
     });
   } catch (error) {
     console.error("Error closing weekly pool:", error);

@@ -19,34 +19,22 @@ import {
   calculateStats,
   deleteDonation,
   updateDonation,
-  getUserRole,
 } from "../services/donationService";
+import { useUser } from "../context/UserContext";
 
 const Dashboard = () => {
   const navigate = useNavigate();
+  const { user, loading: userLoading } = useUser();
   const [currentView, setCurrentView] = useState("dashboard");
   const [donations, setDonations] = useState([]);
   const [stats, setStats] = useState({ totalDonated: 0, points: 0, streak: 0 });
   const [loading, setLoading] = useState(true);
   const [pendingPurchase, setPendingPurchase] = useState(null);
-  const [userRole, setUserRole] = useState("student");
-
-  const user = auth.currentUser;
 
   useEffect(() => {
     loadData();
     checkPendingPurchase();
-    loadUserRole();
   }, []);
-
-  const loadUserRole = async () => {
-    try {
-      const role = await getUserRole(user.uid);
-      setUserRole(role);
-    } catch (error) {
-      console.error("Error loading user role:", error);
-    }
-  };
 
   const safeChrome = {
     get: (key, callback) => {
@@ -220,6 +208,9 @@ const Dashboard = () => {
       color: "white",
       boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
       flexShrink: 0,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
     },
     headerTitle: {
       fontSize: "20px",
@@ -315,6 +306,18 @@ const Dashboard = () => {
       fontWeight: 600,
       cursor: "pointer",
     },
+    logoutBtn: {
+      marginLeft: "auto",
+      background: "rgba(255,255,255,0.2)",
+      color: "white",
+      border: "1px solid rgba(255,255,255,0.5)",
+      padding: "6px 12px",
+      borderRadius: "6px",
+      cursor: "pointer",
+      fontSize: "13px",
+      fontWeight: 800,
+      transition: "0.2s",
+    }
   };
 
   const getInitials = (email) => {
@@ -322,7 +325,7 @@ const Dashboard = () => {
     return name.slice(0, 2).toUpperCase();
   };
 
-  if (loading) {
+  if (loading || userLoading) {
     return (
       <div style={styles.container}>
         <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>
@@ -334,6 +337,14 @@ const Dashboard = () => {
     <div style={styles.container}>
       <header style={styles.header}>
         <h1 style={styles.headerTitle}>💰 Dilio</h1>
+        <button
+          style={styles.logoutBtn}
+          onClick={handleLogout}
+          onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.35)"}
+          onMouseLeave={e => e.target.style.background = "rgba(255,255,255,0.2)"}
+        >
+          Logout
+        </button>
       </header>
 
       {currentView === "dashboard" && (
@@ -366,7 +377,7 @@ const Dashboard = () => {
             <div style={{ flex: 1 }}>
               <div style={styles.userName}>
                 {user.displayName || user.email.split("@")[0]}
-                <span style={styles.roleBadge}>{userRole}</span>
+                <span style={styles.roleBadge}>{user.role}</span>
               </div>
               <div style={styles.userEmail}>{user.email}</div>
             </div>
@@ -378,8 +389,8 @@ const Dashboard = () => {
             onMockPurchase={handleMockPurchase}
             onViewCampaigns={() => setCurrentView("campaigns")}
             onVote={() => setCurrentView("voting")}
-            onCreateCampaign={userRole === "organizer" || userRole === "admin" ? () => setCurrentView("create-campaign") : null}
-            onAdminPanel={userRole === "admin" ? () => setCurrentView("admin") : null}
+            onCreateCampaign={user.role === "organizer" || user.role === "admin" ? () => setCurrentView("create-campaign") : null}
+            onAdminPanel={user.role === "admin" ? () => setCurrentView("admin") : null}
           />
 
           <RecentActivity 
@@ -394,9 +405,9 @@ const Dashboard = () => {
       {currentView === "voting" && <VotingView />}
       {currentView === "create-campaign" && <CreateCampaignView onBack={() => setCurrentView("dashboard")} userId={user.uid} />}
       {currentView === "admin" && <AdminView onBack={() => setCurrentView("dashboard")} />}
-      {currentView === "profile" && <ProfileView user={user} onLogout={handleLogout} userRole={userRole} onRoleChange={loadUserRole} />}
+      {currentView === "profile" && <ProfileView onLogout={handleLogout} />}
 
-      <BottomNav currentView={currentView} onNavigate={setCurrentView} userRole={userRole} />
+      <BottomNav currentView={currentView} onNavigate={setCurrentView} />
     </div>
   );
 };

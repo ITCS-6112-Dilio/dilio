@@ -1,3 +1,4 @@
+// src/components/auth/Login.jsx
 import { useState } from "react";
 import { auth } from "../../services/firebase";
 import { signInWithEmailAndPassword } from "firebase/auth";

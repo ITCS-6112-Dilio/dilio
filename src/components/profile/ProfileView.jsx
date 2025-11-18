@@ -1,14 +1,34 @@
 ﻿// src/components/profile/ProfileView.jsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { updateProfile } from "firebase/auth";
-import { updateUserRole, requestOrganizerRole } from "../../services/donationService";
+import { getPendingRoleRequests, requestOrganizerRole, updateUserRole } from "../../services/donationService";
 import Input from "../Input";
 import Button from "../Button";
+import { useUser } from "../../context/UserContext";
+import { auth } from "../../services/firebase";
 
-const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
-  const [displayName, setDisplayName] = useState(user.displayName || "");
-  const [loading, setLoading] = useState(false);
-  const [requestReason, setRequestReason] = useState("");
+const ProfileView = ({ onLogout }) => {
+  const { user, setUser } = useUser();
+  const [ displayName, setDisplayName ] = useState(user.displayName || "");
+  const [ loading, setLoading ] = useState(false);
+  const [ requestReason, setRequestReason ] = useState("");
+  const [ pendingRequest, setPendingRequest ] = useState(null);
+
+  useEffect(() => {
+    if (user.role === "student") {
+      checkPendingRequest();
+    }
+  }, [ user.uid, user.role ]);
+
+  const checkPendingRequest = async () => {
+    try {
+      const roleRequests = await getPendingRoleRequests();
+      const existingRoleRequest = roleRequests.find(r => r.userId === user.uid);
+      setPendingRequest(existingRoleRequest);
+    } catch (error) {
+      console.error("Error fetching pending role request:", error);
+    }
+  };
 
   const handleSave = async () => {
     if (!displayName.trim()) {
@@ -18,7 +38,8 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
 
     setLoading(true);
     try {
-      await updateProfile(user, { displayName: displayName.trim() });
+      await updateProfile(auth.currentUser, { displayName: displayName.trim() });
+      setUser(prev => ({ ...prev, displayName: displayName.trim() }));
       alert("✅ Profile updated successfully!");
     } catch (error) {
       alert("Error updating profile: " + error.message);
@@ -38,6 +59,7 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
       await requestOrganizerRole(user.uid, requestReason);
       alert("✅ Organizer request submitted! An admin will review it.");
       setRequestReason("");
+      checkPendingRequest();
     } catch (error) {
       alert("Error submitting request: " + error.message);
     } finally {
@@ -49,8 +71,8 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
     if (window.confirm("Make yourself an admin? (Dev only)")) {
       try {
         await updateUserRole(user.uid, "admin");
+        setUser(prev => ({ ...prev, role: "admin" }));
         alert("✅ You are now an admin!");
-        onRoleChange();
       } catch (error) {
         alert("Error: " + error.message);
       }
@@ -109,6 +131,8 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
       fontFamily: "inherit",
       boxSizing: "border-box",
       resize: "vertical",
+      background: pendingRequest ? "#f1f5f9" : "white",
+      cursor: pendingRequest ? "not-allowed" : "text",
     },
   };
 
@@ -117,7 +141,7 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
       <div style={styles.header}>
         <h2 style={styles.title}>Profile</h2>
       </div>
-      
+
       <div style={styles.section}>
         <label style={styles.label}>Email</label>
         <div style={styles.info}>{user.email}</div>
@@ -126,7 +150,7 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
       <div style={styles.section}>
         <label style={styles.label}>Current Role</label>
         <div>
-          <span style={styles.roleBadge}>{userRole}</span>
+          <span style={styles.roleBadge}>{user.role}</span>
         </div>
       </div>
 
@@ -144,19 +168,29 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
         {loading ? "Saving..." : "Save Changes"}
       </Button>
 
-      {userRole === "student" && (
+      {user.role === "student" && (
         <div style={{ marginTop: "20px" }}>
           <h3 style={{ fontSize: "14px", marginBottom: "8px", fontWeight: 600 }}>
             Request Organizer Role
           </h3>
           <textarea
             style={styles.textarea}
-            value={requestReason}
-            onChange={(e) => setRequestReason(e.target.value)}
+            value={
+              pendingRequest
+                ? `You have already requested for "${pendingRequest.requestedRole}" at ${new Date(pendingRequest.createdAt.seconds * 1000).toLocaleString()}. Please contact admins for urgent requests.`
+                : requestReason
+            }
+            onChange={e => setRequestReason(e.target.value)}
             placeholder="Why do you want to become an organizer?"
+            readOnly={!!pendingRequest}
           />
-          <Button variant="secondary" onClick={handleRequestOrganizer} style={{ marginTop: "10px" }}>
-            Request Organizer Role
+          <Button
+            variant="secondary"
+            onClick={handleRequestOrganizer}
+            style={{ marginTop: "10px" }}
+            disabled={!!pendingRequest || loading}
+          >
+            {pendingRequest ? "Request Pending" : loading ? "Submitting..." : "Request Organizer Role"}
           </Button>
         </div>
       )}
@@ -168,15 +202,22 @@ const ProfileView = ({ user, onLogout, userRole, onRoleChange }) => {
         <Button variant="warning" onClick={handleMakeAdmin} style={{ marginBottom: "8px" }}>
           Make Me Admin (Dev)
         </Button>
+        <Button variant="info" style={{ marginTop: "8px" }} onClick={async () => {
+          await updateUserRole(user.uid, "student");
+          setUser(prev => ({ ...prev, role: "student" }));
+          alert("✅ You are now a student!");
+        }}>
+          Make Me Student (Dev)
+        </Button>
         <Button variant="info" onClick={async () => {
           await updateUserRole(user.uid, "organizer");
+          setUser(prev => ({ ...prev, role: "organizer" }));
           alert("✅ You are now an organizer!");
-          onRoleChange();
         }}>
           Make Me Organizer (Dev)
         </Button>
       </div>
-      
+
       <Button variant="danger" onClick={onLogout} style={{ marginTop: "20px" }}>
         Logout
       </Button>

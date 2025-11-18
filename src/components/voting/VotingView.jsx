@@ -1,10 +1,11 @@
 ﻿// src/components/voting/VotingView.jsx
 import { useState, useEffect } from "react";
 import { getVotingSession, submitVote } from "../../services/donationService";
-import { auth } from "../../services/firebase";
 import Button from "../Button";
+import { useUser } from "../../context/UserContext";
 
 const VotingView = () => {
+  const { user } = useUser();
   const [session, setSession] = useState(null);
   const [selectedOrg, setSelectedOrg] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -32,7 +33,7 @@ const VotingView = () => {
     }
 
     try {
-      await submitVote(auth.currentUser.uid, selectedOrg, session.id);
+      await submitVote(user.uid, selectedOrg, session.id);
       setHasVoted(true);
       alert("✅ Vote Submitted! Thank you for participating!");
     } catch (error) {

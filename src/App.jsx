@@ -1,30 +1,22 @@
-import {
-  BrowserRouter as Router,
-  Routes,
-  Route,
-  Navigate,
-} from "react-router-dom";
+// src/App.jsx
+import { BrowserRouter as Router, Navigate, Route, Routes, } from "react-router-dom";
 import SignUp from "./components/auth/SignUp";
 import Login from "./components/auth/Login";
 import Dashboard from "./components/Dashboard";
-import { useAuthState } from "react-firebase-hooks/auth";
-import { auth } from "./services/firebase";
+import { useUser } from "./context/UserContext";
 
-// Protect dashboard, allow any logged-in user
 const PrivateRoute = ({ children }) => {
-  const [user, loading] = useAuthState(auth);
+  const { user, loading } = useUser();
   if (loading) return <div>Loading...</div>;
-
   return user ? children : <Navigate to="/login" replace />;
 };
 
-// Prevent login/signup page if session/user is present
 const PublicRoute = ({ children }) => {
-  const [user, loading] = useAuthState(auth);
+  const { user, loading } = useUser();
   if (loading) return <div>Loading...</div>;
-
   return user ? <Navigate to="/dashboard" replace /> : children;
 };
+
 
 function App() {
   return (

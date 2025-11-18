@@ -1,13 +1,23 @@
 ﻿// src/components/admin/AdminView.jsx
-import { useState, useEffect } from "react";
-import { getPendingCampaigns, approveCampaign, rejectCampaign, getWeeklyReport } from "../../services/donationService";
+import { useEffect, useState } from "react";
+import {
+  approveCampaign,
+  approveRoleRequest,
+  getPendingCampaigns,
+  getPendingRoleRequests,
+  getUserById,
+  getWeeklyReport,
+  rejectCampaign,
+  rejectRoleRequest,
+} from "../../services/donationService";
 import Button from "../Button";
 
 const AdminView = ({ onBack }) => {
-  const [pendingCampaigns, setPendingCampaigns] = useState([]);
-  const [weeklyReports, setWeeklyReports] = useState([]);
-  const [activeTab, setActiveTab] = useState("campaigns");
-  const [loading, setLoading] = useState(true);
+  const [ pendingCampaigns, setPendingCampaigns ] = useState([]);
+  const [ roleRequests, setRoleRequests ] = useState([]);
+  const [ weeklyReports, setWeeklyReports ] = useState([]);
+  const [ activeTab, setActiveTab ] = useState("campaigns");
+  const [ loading, setLoading ] = useState(true);
 
   useEffect(() => {
     loadData();
@@ -18,6 +28,16 @@ const AdminView = ({ onBack }) => {
     try {
       const campaigns = await getPendingCampaigns();
       setPendingCampaigns(campaigns);
+
+      const roleRequests = await getPendingRoleRequests();
+      const enrichedRoleRequests = await Promise.all(
+        roleRequests.map(async roleRequest => {
+          const user = await getUserById(roleRequest.userId)
+          return { ...roleRequest, user };
+        }),
+      );
+      setRoleRequests(enrichedRoleRequests);
+
       const reports = await getWeeklyReport();
       setWeeklyReports(reports);
     } catch (error) {
@@ -48,6 +68,27 @@ const AdminView = ({ onBack }) => {
       }
     }
   };
+
+  const handleApproveRole = async (req) => {
+    try {
+      await approveRoleRequest(req.id, req.userId, req.requestedRole);
+      alert("Role request approved");
+      loadData();
+    } catch (e) {
+      alert("Error approving role: " + e.message);
+    }
+  };
+
+  const handleRejectRole = async (reqId) => {
+    try {
+      await rejectRoleRequest(reqId);
+      alert("Role request rejected");
+      loadData();
+    } catch (e) {
+      alert("Error rejecting role: " + e.message);
+    }
+  };
+
 
   const styles = {
     container: {
@@ -144,6 +185,24 @@ const AdminView = ({ onBack }) => {
       color: "#64748b",
       padding: "20px",
     },
+    roleCard: {
+      background: "#f1f5f9",
+      border: "1px solid #cbd5e1",
+      borderRadius: "10px",
+      padding: "16px",
+      marginBottom: "12px",
+    },
+    roleTitle: {
+      fontSize: "15px",
+      fontWeight: 600,
+      marginBottom: "6px",
+    },
+    roleDetails: {
+      fontSize: "13px",
+      color: "#475569",
+      marginBottom: "10px",
+      lineHeight: "1.5",
+    },
   };
 
   if (loading) {
@@ -169,6 +228,15 @@ const AdminView = ({ onBack }) => {
           onClick={() => setActiveTab("campaigns")}
         >
           Pending Campaigns ({pendingCampaigns.length})
+        </button>
+        <button
+          style={{
+            ...styles.tab,
+            ...(activeTab === "roleRequests" ? styles.activeTab : {}),
+          }}
+          onClick={() => setActiveTab("roleRequests")}
+        >
+          Role Requests ({roleRequests.length})
         </button>
         <button
           style={{
@@ -213,6 +281,69 @@ const AdminView = ({ onBack }) => {
         </div>
       )}
 
+      {activeTab === "roleRequests" && (
+        <div>
+          {roleRequests.length === 0 ? (
+            <p style={styles.noData}>No pending role requests</p>
+          ) : (
+            roleRequests.map((req) => {
+              const user = req.user;
+              const displayName = user?.displayName;
+              const email = user?.email;
+              const currentRole = user?.role || "user";
+
+              return (
+                <div key={req.id} style={styles.roleCard}>
+                  <div style={styles.roleTitle}>
+                    {displayName ? (
+                      <>
+                        {displayName} <span style={{ color: "#334155" }}>&lt;{email}&gt;</span>
+                      </>
+                    ) : (
+                      email
+                    )}
+                  </div>
+
+                  <div style={styles.roleDetails}>
+                    <b>Current Role:</b> {currentRole} <br/>
+                    <b>Requested Role:</b> {req.requestedRole} <br/>
+                    <b>Reason:</b> {req.reason || "—"} <br/>
+                    <b>Requested At:</b>{" "}
+                    {
+                      req.createdAt?.seconds
+                        ? new Date(req.createdAt.seconds * 1000).toLocaleString()
+                        : new Date(req.createdAt).toLocaleString()
+                    }
+                  </div>
+
+                  <div style={styles.buttonGroup}>
+                    <button
+                      style={styles.approveBtn}
+                      onClick={() =>
+                        handleApproveRole({
+                          id: req.id,
+                          userId: req.userId,
+                          requestedRole: req.requestedRole,
+                        })
+                      }
+                    >
+                      Approve
+                    </button>
+
+                    <button
+                      style={styles.rejectBtn}
+                      onClick={() => handleRejectRole(req.id)}
+                    >
+                      Reject
+                    </button>
+                  </div>
+                </div>
+              );
+            })
+          )}
+        </div>
+      )}
+
       {activeTab === "reports" && (
         <div>
           {weeklyReports.length === 0 ? (
@@ -223,9 +354,9 @@ const AdminView = ({ onBack }) => {
                 <div style={styles.campaignTitle}>Week {report.weekId}</div>
                 <div style={styles.campaignDesc}>
                   Winner: {report.winnerId}
-                  <br />
+                  <br/>
                   Total Amount: \\
-                  <br />
+                  <br/>
                   Closed: {new Date(report.closedAt?.seconds * 1000).toLocaleDateString()}
                 </div>
               </div>
