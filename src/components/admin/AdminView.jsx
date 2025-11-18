@@ -259,7 +259,8 @@ const AdminView = ({ onBack }) => {
                 <div style={styles.campaignTitle}>{campaign.name}</div>
                 <div style={styles.campaignDesc}>{campaign.description}</div>
                 <div style={styles.campaignMeta}>
-                  Goal: \\ | Category: {campaign.category}
+                  Goal: ${campaign.goal} <br/>
+                  Category: {campaign.category}
                 </div>
                 <div style={styles.buttonGroup}>
                   <button
