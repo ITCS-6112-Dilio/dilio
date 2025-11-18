@@ -1,16 +1,34 @@
 ﻿// src/components/profile/ProfileView.jsx
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { updateProfile } from "firebase/auth";
-import { updateUserRole, requestOrganizerRole } from "../../services/donationService";
+import { getPendingRoleRequests, requestOrganizerRole, updateUserRole } from "../../services/donationService";
 import Input from "../Input";
 import Button from "../Button";
 import { useUser } from "../../context/UserContext";
+import { auth } from "../../services/firebase";
 
 const ProfileView = ({ onLogout }) => {
   const { user, setUser } = useUser();
-  const [displayName, setDisplayName] = useState(user.displayName || "");
-  const [loading, setLoading] = useState(false);
-  const [requestReason, setRequestReason] = useState("");
+  const [ displayName, setDisplayName ] = useState(user.displayName || "");
+  const [ loading, setLoading ] = useState(false);
+  const [ requestReason, setRequestReason ] = useState("");
+  const [ pendingRequest, setPendingRequest ] = useState(null);
+
+  useEffect(() => {
+    if (user.role === "student") {
+      checkPendingRequest();
+    }
+  }, [ user.uid, user.role ]);
+
+  const checkPendingRequest = async () => {
+    try {
+      const roleRequests = await getPendingRoleRequests();
+      const existingRoleRequest = roleRequests.find(r => r.userId === user.uid);
+      setPendingRequest(existingRoleRequest);
+    } catch (error) {
+      console.error("Error fetching pending role request:", error);
+    }
+  };
 
   const handleSave = async () => {
     if (!displayName.trim()) {
@@ -20,7 +38,7 @@ const ProfileView = ({ onLogout }) => {
 
     setLoading(true);
     try {
-      await updateProfile(user, { displayName: displayName.trim() });
+      await updateProfile(auth.currentUser, { displayName: displayName.trim() });
       setUser(prev => ({ ...prev, displayName: displayName.trim() }));
       alert("✅ Profile updated successfully!");
     } catch (error) {
@@ -41,6 +59,7 @@ const ProfileView = ({ onLogout }) => {
       await requestOrganizerRole(user.uid, requestReason);
       alert("✅ Organizer request submitted! An admin will review it.");
       setRequestReason("");
+      checkPendingRequest();
     } catch (error) {
       alert("Error submitting request: " + error.message);
     } finally {
@@ -112,6 +131,8 @@ const ProfileView = ({ onLogout }) => {
       fontFamily: "inherit",
       boxSizing: "border-box",
       resize: "vertical",
+      background: pendingRequest ? "#f1f5f9" : "white",
+      cursor: pendingRequest ? "not-allowed" : "text",
     },
   };
 
@@ -120,7 +141,7 @@ const ProfileView = ({ onLogout }) => {
       <div style={styles.header}>
         <h2 style={styles.title}>Profile</h2>
       </div>
-      
+
       <div style={styles.section}>
         <label style={styles.label}>Email</label>
         <div style={styles.info}>{user.email}</div>
@@ -154,12 +175,22 @@ const ProfileView = ({ onLogout }) => {
           </h3>
           <textarea
             style={styles.textarea}
-            value={requestReason}
-            onChange={(e) => setRequestReason(e.target.value)}
+            value={
+              pendingRequest
+                ? `You have already requested for "${pendingRequest.requestedRole}" at ${new Date(pendingRequest.createdAt.seconds * 1000).toLocaleString()}. Please contact admins for urgent requests.`
+                : requestReason
+            }
+            onChange={e => setRequestReason(e.target.value)}
             placeholder="Why do you want to become an organizer?"
+            readOnly={!!pendingRequest}
           />
-          <Button variant="secondary" onClick={handleRequestOrganizer} style={{ marginTop: "10px" }}>
-            Request Organizer Role
+          <Button
+            variant="secondary"
+            onClick={handleRequestOrganizer}
+            style={{ marginTop: "10px" }}
+            disabled={!!pendingRequest || loading}
+          >
+            {pendingRequest ? "Request Pending" : loading ? "Submitting..." : "Request Organizer Role"}
           </Button>
         </div>
       )}
@@ -186,7 +217,7 @@ const ProfileView = ({ onLogout }) => {
           Make Me Organizer (Dev)
         </Button>
       </div>
-      
+
       <Button variant="danger" onClick={onLogout} style={{ marginTop: "20px" }}>
         Logout
       </Button>
