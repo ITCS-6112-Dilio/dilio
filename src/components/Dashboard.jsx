@@ -208,6 +208,9 @@ const Dashboard = () => {
       color: "white",
       boxShadow: "0 1px 3px rgba(0, 0, 0, 0.1)",
       flexShrink: 0,
+      display: "flex",
+      justifyContent: "space-between",
+      alignItems: "center",
     },
     headerTitle: {
       fontSize: "20px",
@@ -303,6 +306,18 @@ const Dashboard = () => {
       fontWeight: 600,
       cursor: "pointer",
     },
+    logoutBtn: {
+      marginLeft: "auto",
+      background: "rgba(255,255,255,0.2)",
+      color: "white",
+      border: "1px solid rgba(255,255,255,0.3)",
+      padding: "6px 12px",
+      borderRadius: "6px",
+      cursor: "pointer",
+      fontSize: "13px",
+      fontWeight: 500,
+      transition: "0.2s",
+    }
   };
 
   const getInitials = (email) => {
@@ -322,6 +337,14 @@ const Dashboard = () => {
     <div style={styles.container}>
       <header style={styles.header}>
         <h1 style={styles.headerTitle}>💰 Dilio</h1>
+        <button
+          style={styles.logoutBtn}
+          onClick={handleLogout}
+          onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.35)"}
+          onMouseLeave={e => e.target.style.background = "rgba(255,255,255,0.2)"}
+        >
+          Logout
+        </button>
       </header>
 
       {currentView === "dashboard" && (
