@@ -310,12 +310,12 @@ const Dashboard = () => {
       marginLeft: "auto",
       background: "rgba(255,255,255,0.2)",
       color: "white",
-      border: "1px solid rgba(255,255,255,0.3)",
+      border: "1px solid rgba(255,255,255,0.5)",
       padding: "6px 12px",
       borderRadius: "6px",
       cursor: "pointer",
       fontSize: "13px",
-      fontWeight: 500,
+      fontWeight: 800,
       transition: "0.2s",
     }
   };
