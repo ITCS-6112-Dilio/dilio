@@ -1,5 +1,10 @@
 ﻿// src/components/dashboard/StatsCard.jsx
 const StatsCard = ({ stats }) => {
+  
+  const safeTotal = Number.isFinite(stats.totalDonated)
+    ? stats.totalDonated
+    : 0;
+    
   const styles = {
     grid: {
       display: "grid",

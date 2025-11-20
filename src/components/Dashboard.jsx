@@ -65,16 +65,17 @@ const Dashboard = () => {
   };
 
   const loadData = async () => {
-    try {
-      const userDonations = await getDonations(user.uid);
-      setDonations(userDonations);
-      setStats(calculateStats(userDonations));
-    } catch (error) {
-      console.error("Error loading data:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  try {
+    const userDonations = await getDonations(user.uid);
+    setDonations(userDonations);
+    setStats(calculateStats(userDonations));
+  } catch (error) {
+    console.error("Error loading data:", error);
+    // keep existing donations/stats; maybe show an alert/toast if you want
+  } finally {
+    setLoading(false);
+  }
+};
 
   const handleConfirmDonation = async () => {
     if (!pendingPurchase || !pendingPurchase.amount) {
@@ -101,12 +102,24 @@ const Dashboard = () => {
     };
 
     try {
-      await saveDonation(donation);
-      await loadData();
+      const id = await saveDonation(donation);
+
+      setDonations(prev => {
+        const updated = [{ id, ...donation }, ...prev];
+        setStats(calculateStats(updated)); // Instant UI update
+        return updated;
+      });
+
       safeChrome.remove(["pendingPurchase"]);
       safeChrome.clearBadge();
       setPendingPurchase(null);
-      alert("Thank you! Donation of \\$" + roundUpAmount.toFixed(2) + " recorded!");
+
+      // Optional safety sync
+      // await loadData();
+
+      alert(
+        "Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded!"
+      );
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
@@ -137,38 +150,60 @@ const Dashboard = () => {
 
     const donation = {
       amount: roundUpAmount,
-      purchaseAmount: purchaseAmount,
+      purchaseAmount,
       campaign: "General Pool",
       timestamp: Date.now(),
       userId: user.uid,
     };
 
     try {
-      await saveDonation(donation);
-      await loadData();
-      alert("Donation Successful!\\nYou donated \\$" + roundUpAmount.toFixed(2));
+      const id = await saveDonation(donation);
+
+      setDonations(prev => {
+        const updated = [{ id, ...donation }, ...prev];
+        setStats(calculateStats(updated)); // Instant UI update
+        return updated;
+      });
+
+      // Optional: still sync from Firestore (safe if user donates on another device)
+      // await loadData();
+
+      alert(
+        "Donation Successful!\nYou donated $" + roundUpAmount.toFixed(2)
+      );
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
   };
 
-  const handleDeleteDonation = async (donationId) => {
-    if (!window.confirm("Are you sure you want to delete this donation?")) {
-      return;
-    }
 
-    try {
-      await deleteDonation(donationId);
-      await loadData();
-      alert("Donation deleted successfully");
-    } catch (error) {
-      alert("Error deleting donation: " + error.message);
-    }
-  };
+  const handleDeleteDonation = async (donationId) => {
+  if (!window.confirm("Are you sure you want to delete this donation?")) {
+    return;
+  }
+
+  try {
+    await deleteDonation(donationId);
+
+    // ✅ Update local state so only ONE donation disappears
+    setDonations(prev => {
+      const updated = prev.filter(d => d.id !== donationId);
+      setStats(calculateStats(updated));
+      return updated;
+    });
+
+    // Optional: sync from Firestore if you care about other-device changes
+    // await loadData();
+
+    alert("Donation deleted successfully");
+  } catch (error) {
+    alert("Error deleting donation: " + error.message);
+  }
+};
 
   const handleEditDonation = async (donation) => {
     const newAmount = prompt("Enter new donation amount:", donation.amount.toFixed(2));
-    if (!newAmount) return;
+    if (newAmount === null) return; // user hit Cancel
 
     const amount = parseFloat(newAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -178,7 +213,19 @@ const Dashboard = () => {
 
     try {
       await updateDonation(donation.id, { amount });
-      await loadData();
+
+      // ✅ update local state + stats immediately
+      setDonations(prev => {
+        const updated = prev.map(d =>
+          d.id === donation.id ? { ...d, amount } : d
+        );
+        setStats(calculateStats(updated));
+        return updated;
+      });
+
+      // Optional: keep this if you want a fresh read from Firestore
+      // await loadData();
+
       alert("Donation updated successfully");
     } catch (error) {
       alert("Error updating donation: " + error.message);
@@ -393,7 +440,7 @@ const Dashboard = () => {
             onAdminPanel={user.role === "admin" ? () => setCurrentView("admin") : null}
           />
 
-          <RecentActivity 
+          <RecentActivity
             donations={donations}
             onDelete={handleDeleteDonation}
             onEdit={handleEditDonation}
