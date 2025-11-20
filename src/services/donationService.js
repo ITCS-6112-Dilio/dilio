@@ -87,12 +87,12 @@ export const calculateStats = (donations = []) => {
   // 1) Total donated
   const totalDonated = normalized.reduce((sum, d) => sum + d.amount, 0);
 
-  // 2) 💰 Points based on total donated (Option 1)
+  // 2) Points based on total donated
   //    e.g., 10 points per $1 donated
   const pointsPerDollar = 10;
   const points = Math.round(totalDonated * pointsPerDollar);
 
-  // 3) Streak logic (same idea as before)
+  // 3) Streak logic
   let streak = 0;
   if (normalized.length > 0) {
     const today = new Date().setHours(0, 0, 0, 0);
