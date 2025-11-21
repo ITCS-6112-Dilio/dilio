@@ -44,7 +44,8 @@ export const getDonations = async (userId) => {
     }));
   } catch (error) {
     console.error("Error getting donations:", error);
-    return [];
+    // Do NOT return []
+    throw error;
   }
 };
 
@@ -66,17 +67,46 @@ export const updateDonation = async (donationId, updates) => {
   }
 };
 
-export const calculateStats = (donations) => {
-  const totalDonated = donations.reduce((sum, d) => sum + d.amount, 0);
-  const points = donations.length * 10;
+export const calculateStats = (donations = []) => {
+  // Normalize data (amount as number, timestamp as ms)
+  const normalized = donations.map(d => {
+    const amount = Number(d.amount) || 0;
+
+    let ts = d.timestamp;
+    if (ts?.toMillis) {
+      ts = ts.toMillis();          // Firestore Timestamp
+    } else if (ts instanceof Date) {
+      ts = ts.getTime();           // JS Date
+    } else if (typeof ts !== "number") {
+      ts = 0;                      // Fallback
+    }
+
+    return { ...d, amount, timestamp: ts };
+  });
+
+  // 1) Total donated
+  const totalDonated = normalized.reduce((sum, d) => sum + d.amount, 0);
+
+  // 2) Points based on total donated
+  //    e.g., 10 points per $1 donated
+  const pointsPerDollar = 10;
+  const points = Math.round(totalDonated * pointsPerDollar);
+
+  // 3) Streak logic
   let streak = 0;
-  if (donations.length > 0) {
+  if (normalized.length > 0) {
     const today = new Date().setHours(0, 0, 0, 0);
-    const sortedDonations = [ ...donations ].sort((a, b) => b.timestamp - a.timestamp);
+    const sorted = [...normalized].sort((a, b) => b.timestamp - a.timestamp);
     let currentDate = today;
-    for (const donation of sortedDonations) {
-      const donationDate = new Date(donation.timestamp).setHours(0, 0, 0, 0);
-      const dayDiff = Math.floor((currentDate - donationDate) / (1000 * 60 * 60 * 24));
+
+    for (const d of sorted) {
+      if (!d.timestamp) continue;
+
+      const donationDate = new Date(d.timestamp).setHours(0, 0, 0, 0);
+      const dayDiff = Math.floor(
+        (currentDate - donationDate) / (1000 * 60 * 60 * 24)
+      );
+
       if (dayDiff <= 1) {
         streak++;
         currentDate = donationDate;
@@ -85,7 +115,12 @@ export const calculateStats = (donations) => {
       }
     }
   }
-  return { totalDonated, points, streak: Math.min(streak, 30) };
+
+  return {
+    totalDonated,
+    points,
+    streak: Math.min(streak, 30),
+  };
 };
 
 // CAMPAIGN MANAGEMENT
