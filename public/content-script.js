@@ -2,36 +2,57 @@
 console.log('Dilio: Content script loaded on', window.location.href);
 
 function showDilioPanel(amount) {
-    console.log('Dilio: showDilioPanel called with amount:', amount);
-  // Avoid duplicate panel
+  console.log('Dilio: showDilioPanel called with amount:', amount);
+
+  // Prevent duplicates
   if (document.getElementById('dilio-panel')) return;
 
-  const panel = document.createElement('div');
-  panel.id = 'dilio-panel';
-  panel.style.position = 'fixed';
-  panel.style.bottom = '20px';
-  panel.style.right = '20px';
-  panel.style.zIndex = '2147483647';
-  panel.style.background = '#ffffff';
-  panel.style.borderRadius = '12px';
-  panel.style.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
-  panel.style.padding = '16px';
-  panel.style.maxWidth = '320px';
-  panel.style.fontFamily = 'system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
-  panel.style.fontSize = '14px';
+  // Store pending purchase immediately so Dashboard can process it
+  chrome.storage?.local?.set(
+    {
+      pendingPurchase: {
+        amount,
+        url: window.location.href,
+        timestamp: Date.now(),
+      },
+    },
+    () => console.log("Dilio: pendingPurchase stored:", amount)
+  );
+
+  const panel = document.createElement("div");
+  panel.id = "dilio-panel";
+
+  
+  panel.style.position = "fixed";
+  panel.style.bottom = "20px";
+  panel.style.right = "20px";
+  panel.style.zIndex = "2147483647";
+  panel.style.background = "#ffffff";
+  panel.style.borderRadius = "12px";
+  panel.style.boxShadow = "0 8px 20px rgba(0,0,0,0.25)";
+  panel.style.padding = "16px";
+  panel.style.maxWidth = "320px";
+  panel.style.fontFamily = "system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
+  panel.style.fontSize = "14px";
 
   const roundedUp = Math.ceil(amount) - amount;
   const roundedUpDisplay = roundedUp.toFixed(2);
 
+  
   panel.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <strong style="font-size:14px;">Round up with Dilio?</strong>
-      <button id="dilio-close" style="border:none;background:none;font-size:16px;cursor:pointer;line-height:1;">×</button>
+      <button id="dilio-close" 
+        style="border:none;background:none;font-size:16px;cursor:pointer;line-height:1;">
+        ×
+      </button>
     </div>
+
     <p style="margin:0 0 8px 0;">
       Your total is <strong>$${amount.toFixed(2)}</strong>.<br>
       Round up <strong>$${roundedUpDisplay}</strong> to support a campus cause.
     </p>
+
     <button id="dilio-confirm" style="
       width:100%;
       margin-top:8px;
@@ -39,10 +60,13 @@ function showDilioPanel(amount) {
       border-radius:8px;
       border:none;
       cursor:pointer;
+      background:#2563eb;
+      color:white;
       font-weight:600;
     ">
       Yes, round up with Dilio
     </button>
+
     <button id="dilio-skip" style="
       width:100%;
       margin-top:6px;
@@ -59,13 +83,16 @@ function showDilioPanel(amount) {
 
   document.body.appendChild(panel);
 
-  document.getElementById('dilio-close').onclick = () => panel.remove();
-  document.getElementById('dilio-skip').onclick = () => panel.remove();
+  // Close
+  document.getElementById("dilio-close").onclick = () => panel.remove();
 
-  document.getElementById('dilio-confirm').onclick = () => {
-    // mark user consent for this pendingPurchase
-    chrome.storage.local.set({ pendingPurchaseApproved: true }, () => {
-      console.log('Dilio: user approved round up');
+  // Skip
+  document.getElementById("dilio-skip").onclick = () => panel.remove();
+
+  // Confirm
+  document.getElementById("dilio-confirm").onclick = () => {
+    chrome.storage?.local?.set({ pendingPurchaseApproved: true }, () => {
+      console.log("Dilio: user approved round up");
     });
     panel.remove();
   };
@@ -136,20 +163,20 @@ if (isCheckoutPage()) {
     const buttons = document.querySelectorAll('button, input[type="submit"], a[class*="button"]');
     buttons.forEach(button => {
       const text = (button.textContent || '').toLowerCase();
-      if ((text.includes('place order') || 
-          text.includes('complete purchase') ||
-          text.includes('pay now') ||
-          text.includes('checkout') ||
-          text.includes('submit order')) && 
-          !button.dataset.dilioAttached) {
-        
+      if ((text.includes('place order') ||
+        text.includes('complete purchase') ||
+        text.includes('pay now') ||
+        text.includes('checkout') ||
+        text.includes('submit order')) &&
+        !button.dataset.dilioAttached) {
+
         button.dataset.dilioAttached = 'true';
         console.log('Dilio: Attached listener to button:', text.trim());
 
         button.addEventListener('click', () => {
           const freshAmount = extractAmount();
           console.log('Dilio: Purchase button clicked, amount:', freshAmount);
-          
+
           if (freshAmount && freshAmount > 0) {
             chrome.runtime.sendMessage({
               type: 'CHECKOUT_DETECTED',
@@ -168,7 +195,7 @@ if (isCheckoutPage()) {
       }
     });
   });
-  
+
   observer.observe(document.body, {
     childList: true,
     subtree: true
