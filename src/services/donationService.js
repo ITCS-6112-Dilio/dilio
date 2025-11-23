@@ -91,25 +91,35 @@ export const calculateStats = (donations = []) => {
   const pointsPerDollar = 10;
   const points = Math.round(totalDonated * pointsPerDollar);
 
-  // 3) Streak logic
+  // 3) Streak (calculated in days)
   let streak = 0;
   if (normalized.length > 0) {
     const today = new Date().setHours(0, 0, 0, 0);
-    const sorted = [...normalized].sort((a, b) => b.timestamp - a.timestamp);
+
+    // Collect unique donation days (midnight timestamps) in a Set
+    const daySet = new Set();
+    for (const d of normalized) {
+      if (!d.timestamp) continue;
+      const dayTs = new Date(d.timestamp).setHours(0, 0, 0, 0);
+      daySet.add(dayTs);
+    }
+
+    // Convert to array and sort from most recent to oldest
+    const uniqueDays = Array.from(daySet).sort((a, b) => b - a);
+
     let currentDate = today;
 
-    for (const d of sorted) {
-      if (!d.timestamp) continue;
-
-      const donationDate = new Date(d.timestamp).setHours(0, 0, 0, 0);
+    for (const donationDay of uniqueDays) {
       const dayDiff = Math.floor(
-        (currentDate - donationDate) / (1000 * 60 * 60 * 24)
+        (currentDate - donationDay) / (1000 * 60 * 60 * 24)
       );
 
-      if (dayDiff <= 1) {
+      // Allow today or exactly 1-day gap (yesterday, day before, etc.)
+      if (dayDiff === 0 || dayDiff === 1) {
         streak++;
-        currentDate = donationDate;
+        currentDate = donationDay; // Next comparison is against this day
       } else {
+        // Gap of 2+ days breaks the streak
         break;
       }
     }
