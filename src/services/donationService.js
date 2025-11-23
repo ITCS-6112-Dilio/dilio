@@ -10,6 +10,8 @@ import {
   query,
   updateDoc,
   where,
+  increment,
+  runTransaction,
 } from "firebase/firestore";
 import app from "./firebase";
 
@@ -18,11 +20,31 @@ const db = getFirestore(app);
 // DONATIONS
 export const saveDonation = async (donation) => {
   try {
-    const docRef = await addDoc(collection(db, "donations"), {
-      ...donation,
-      createdAt: new Date(),
+    // Round amount to 2 decimal places
+    const roundedAmount = Math.round(donation.amount * 100) / 100;
+    
+    // Use a transaction to ensure atomicity
+    const donationId = await runTransaction(db, async (transaction) => {
+      // Add the donation with rounded amount
+      const donationRef = doc(collection(db, "donations"));
+      transaction.set(donationRef, {
+        ...donation,
+        amount: roundedAmount,
+        createdAt: new Date(),
+      });
+
+      // Update campaign raised amount if donation is to a specific campaign
+      if (donation.campaignId && donation.campaignId !== "general") {
+        const campaignRef = doc(db, "campaigns", donation.campaignId);
+        transaction.update(campaignRef, {
+          raised: increment(roundedAmount),
+        });
+      }
+
+      return donationRef.id;
     });
-    return docRef.id;
+
+    return donationId;
   } catch (error) {
     console.error("Error saving donation:", error);
     throw error;
@@ -50,7 +72,29 @@ export const getDonations = async (userId) => {
 
 export const deleteDonation = async (donationId) => {
   try {
-    await deleteDoc(doc(db, "donations", donationId));
+    // Use transaction to ensure we also decrement campaign raised amount
+    await runTransaction(db, async (transaction) => {
+      const donationRef = doc(db, "donations", donationId);
+      const donationSnap = await transaction.get(donationRef);
+      
+      if (!donationSnap.exists()) {
+        throw new Error("Donation not found");
+      }
+
+      const donationData = donationSnap.data();
+      const roundedAmount = Math.round(donationData.amount * 100) / 100;
+
+      // Delete the donation
+      transaction.delete(donationRef);
+
+      // Decrement campaign raised amount if it was to a specific campaign
+      if (donationData.campaignId && donationData.campaignId !== "general") {
+        const campaignRef = doc(db, "campaigns", donationData.campaignId);
+        transaction.update(campaignRef, {
+          raised: increment(-roundedAmount),
+        });
+      }
+    });
   } catch (error) {
     console.error("Error deleting donation:", error);
     throw error;
@@ -59,7 +103,36 @@ export const deleteDonation = async (donationId) => {
 
 export const updateDonation = async (donationId, updates) => {
   try {
-    await updateDoc(doc(db, "donations", donationId), updates);
+    // Round amount to 2 decimal places if amount is being updated
+    if (updates.amount !== undefined) {
+      updates.amount = Math.round(updates.amount * 100) / 100;
+    }
+    
+    // Use transaction to handle amount changes
+    await runTransaction(db, async (transaction) => {
+      const donationRef = doc(db, "donations", donationId);
+      const donationSnap = await transaction.get(donationRef);
+      
+      if (!donationSnap.exists()) {
+        throw new Error("Donation not found");
+      }
+
+      const donationData = donationSnap.data();
+      const oldAmount = donationData.amount;
+      const newAmount = updates.amount;
+
+      // Update the donation
+      transaction.update(donationRef, updates);
+
+      // Update campaign raised amount if it was to a specific campaign and amount changed
+      if (donationData.campaignId && donationData.campaignId !== "general" && newAmount !== oldAmount) {
+        const campaignRef = doc(db, "campaigns", donationData.campaignId);
+        const difference = Math.round((newAmount - oldAmount) * 100) / 100;
+        transaction.update(campaignRef, {
+          raised: increment(difference),
+        });
+      }
+    });
   } catch (error) {
     console.error("Error updating donation:", error);
     throw error;

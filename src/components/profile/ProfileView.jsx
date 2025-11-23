@@ -6,7 +6,7 @@ import Input from "../Input";
 import Button from "../Button";
 import { useUser } from "../../context/UserContext";
 import { auth, db } from "../../services/firebase";
-import { doc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc, collection, getDocs } from "firebase/firestore";
 
 const ProfileView = ({ onLogout }) => {
   const { user, setUser } = useUser();
@@ -14,6 +14,7 @@ const ProfileView = ({ onLogout }) => {
   const [ loading, setLoading ] = useState(false);
   const [ requestReason, setRequestReason ] = useState("");
   const [ pendingRequest, setPendingRequest ] = useState(null);
+  const [ migrating, setMigrating ] = useState(false);
 
   useEffect(() => {
     if (user.role === "student") {
@@ -80,6 +81,61 @@ const ProfileView = ({ onLogout }) => {
       } catch (error) {
         alert("Error: " + error.message);
       }
+    }
+  };
+
+  const handleMigrateDonations = async () => {
+    if (!window.confirm("This will recalculate all campaign raised amounts from existing donations. Continue?")) {
+      return;
+    }
+
+    setMigrating(true);
+    try {
+      console.log("Starting migration of existing donations...");
+      
+      // 1. Get all campaigns and reset their raised amounts
+      const campaignsSnapshot = await getDocs(collection(db, "campaigns"));
+      const campaignTotals = {};
+      
+      campaignsSnapshot.forEach(docSnap => {
+        campaignTotals[docSnap.id] = 0;
+      });
+      
+      console.log("Found campaigns:", Object.keys(campaignTotals));
+      
+      // 2. Get all donations
+      const donationsSnapshot = await getDocs(collection(db, "donations"));
+      console.log(`Found ${donationsSnapshot.size} donations to process`);
+      
+      // 3. Calculate totals for each campaign
+      donationsSnapshot.forEach(docSnap => {
+        const donation = docSnap.data();
+        if (donation.campaignId && donation.campaignId !== "general") {
+          const amount = Number(donation.amount) || 0;
+          if (campaignTotals[donation.campaignId] !== undefined) {
+            campaignTotals[donation.campaignId] += amount;
+          }
+        }
+      });
+      
+      console.log("Calculated totals:", campaignTotals);
+      
+      // 4. Update each campaign's raised field
+      for (const [campaignId, total] of Object.entries(campaignTotals)) {
+        const campaignRef = doc(db, "campaigns", campaignId);
+        // Round to 2 decimal places
+        const roundedTotal = Math.round(total * 100) / 100;
+        await updateDoc(campaignRef, { raised: roundedTotal });
+        console.log(`Set ${campaignId} raised to $${roundedTotal.toFixed(2)}`);
+      }
+      
+      console.log("✅ Migration complete! All campaign totals updated.");
+      alert("✅ Migration complete! Campaign totals have been recalculated. Refresh to see changes.");
+    } catch (error) {
+      console.error("❌ Migration error:", error);
+      alert("Migration failed: " + error.message);
+    } finally {
+      setMigrating(false);
     }
   };
 
@@ -201,12 +257,22 @@ const ProfileView = ({ onLogout }) => {
 
       <div style={{ marginTop: "20px", padding: "12px", background: "#fef3c7", borderRadius: "8px" }}>
         <p style={{ fontSize: "12px", margin: 0, marginBottom: "8px" }}>
-          <strong>Dev Mode:</strong> Test different roles
+          <strong>Dev Mode:</strong> Test different roles & migration
         </p>
+        
+        <Button 
+          variant="info" 
+          onClick={handleMigrateDonations} 
+          disabled={migrating}
+          style={{ marginBottom: "8px" }}
+        >
+          {migrating ? "Migrating..." : "🔄 Migrate Campaign Totals"}
+        </Button>
+        
         <Button variant="warning" onClick={handleMakeAdmin} style={{ marginBottom: "8px" }}>
           Make Me Admin (Dev)
         </Button>
-        <Button variant="info" style={{ marginTop: "8px" }} onClick={async () => {
+        <Button variant="info" style={{ marginBottom: "8px" }} onClick={async () => {
           await updateUserRole(user.uid, "student");
           setUser(prev => ({ ...prev, role: "student" }));
           alert("✅ You are now a student!");

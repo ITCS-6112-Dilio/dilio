@@ -26,6 +26,7 @@ import {
   BADGE_LABELS,
 } from "../../services/userService";
 import { getCurrentVotingSession } from "../../services/votingService";
+import { getAllCampaigns } from "../../services/campaignService";
 import { useUser } from "../../context/UserContext";
 
 const Dashboard = () => {
@@ -39,6 +40,8 @@ const Dashboard = () => {
   const [badges, setBadges] = useState([]);
   const [recentBadges, setRecentBadges] = useState([]);
   const [votingCampaigns, setVotingCampaigns] = useState([]);
+  const [allCampaigns, setAllCampaigns] = useState([]);
+  const [showCampaignSelector, setShowCampaignSelector] = useState(false);
 
   const safeChrome = {
     get: (keys, callback) => {
@@ -68,20 +71,16 @@ const Dashboard = () => {
   useEffect(() => {
     if (userLoading || !user) return;
     loadData();
+    loadAllCampaigns();
     checkPendingPurchase();
-    loadVotingCampaigns();
   }, [userLoading, user]);
 
-  const loadVotingCampaigns = async () => {
+  const loadAllCampaigns = async () => {
     try {
-      const session = await getCurrentVotingSession();
-      if (session && session.campaigns) {
-        setVotingCampaigns(session.campaigns);
-        // Cache in chrome storage for content script
-        safeChrome.set({ votingCampaigns: session.campaigns });
-      }
+      const campaigns = await getAllCampaigns("approved");
+      setAllCampaigns(campaigns);
     } catch (error) {
-      console.error("Error loading voting campaigns:", error);
+      console.error("Error loading all campaigns:", error);
     }
   };
 
@@ -89,10 +88,17 @@ const Dashboard = () => {
     safeChrome.get(["pendingPurchase", "selectedCampaign"], (result) => {
       if (result.pendingPurchase) {
         console.log("Dilio: pendingPurchase loaded:", result.pendingPurchase);
+        const selectedCampaign = result.selectedCampaign || "general";
+        
         setPendingPurchase({
           ...result.pendingPurchase,
-          selectedCampaign: result.selectedCampaign || "general"
+          selectedCampaign: selectedCampaign
         });
+
+        // If user selected "choose", show campaign selector
+        if (selectedCampaign === "choose") {
+          setShowCampaignSelector(true);
+        }
       }
     });
   };
@@ -129,6 +135,10 @@ const Dashboard = () => {
             ...purchase,
             selectedCampaign: campaign
           });
+
+          if (campaign === "choose") {
+            setShowCampaignSelector(true);
+          }
         }
       }
     };
@@ -136,6 +146,14 @@ const Dashboard = () => {
     chrome.storage.onChanged.addListener(handleStorageChange);
     return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, []);
+
+  const handleSelectCampaign = (campaignId) => {
+    setPendingPurchase(prev => ({
+      ...prev,
+      selectedCampaign: campaignId
+    }));
+    setShowCampaignSelector(false);
+  };
 
   const handleConfirmDonation = async () => {
     if (!pendingPurchase || !pendingPurchase.amount) {
@@ -158,9 +176,12 @@ const Dashboard = () => {
     }
 
     const selectedCampaign = pendingPurchase.selectedCampaign || "general";
-    const campaignName = selectedCampaign === "general" 
-      ? "General Pool" 
-      : votingCampaigns.find(c => c.id === selectedCampaign)?.name || "Unknown Campaign";
+    
+    let campaignName = "General Pool";
+    if (selectedCampaign !== "general") {
+      const campaign = allCampaigns.find(c => c.id === selectedCampaign);
+      campaignName = campaign ? campaign.name : "Unknown Campaign";
+    }
 
     const donation = {
       amount: roundUpAmount,
@@ -202,6 +223,7 @@ const Dashboard = () => {
       safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
       safeChrome.clearBadge();
       setPendingPurchase(null);
+      setShowCampaignSelector(false);
 
       alert("Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded for " + campaignName + "!");
     } catch (error) {
@@ -212,6 +234,7 @@ const Dashboard = () => {
   const handleDeclineDonation = () => {
     safeChrome.clearBadge();
     setPendingPurchase(null);
+    setShowCampaignSelector(false);
   };
 
   const handleCancelDonation = () => {
@@ -222,6 +245,7 @@ const Dashboard = () => {
     safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
     safeChrome.clearBadge();
     setPendingPurchase(null);
+    setShowCampaignSelector(false);
   };
 
   const handleMockPurchase = async () => {
@@ -245,7 +269,7 @@ const Dashboard = () => {
     }
 
     const extraInput = prompt(
-      `Round-up amount is $${roundUpAmount.toFixed(2)}.\n` +
+      `Round-up amount is ${roundUpAmount.toFixed(2)}.\n` +
       "Enter any additional donation (optional, e.g., 1.00):"
     );
 
@@ -258,29 +282,50 @@ const Dashboard = () => {
 
     if (!extraInput) extraDonation = 0;
 
-    const finalAmount = roundUpAmount + extraDonation;
+    const finalAmount = Math.round((roundUpAmount + extraDonation) * 100) / 100;
 
     if (finalAmount <= 0) {
       alert("No donation amount detected.");
       return;
     }
 
-    // Show campaign selector
-    let campaignOptions = "Choose where to donate:\n0. General Pool (Vote Later)\n";
-    votingCampaigns.forEach((c, idx) => {
-      campaignOptions += `${idx + 1}. ${c.name}\n`;
-    });
+    // Show campaign options
+    const choiceMap = {
+      "0": { id: "general", name: "General Pool" },
+      "1": { id: "choose", name: "Choose Campaign" }
+    };
 
-    const campaignChoice = prompt(campaignOptions + "\nEnter number:");
-    if (campaignChoice === null) return;
+    const choice = prompt(
+      "Choose where to donate:\n" +
+      "0. General Pool (Vote Later)\n" +
+      "1. Choose a Campaign\n\n" +
+      "Enter number:"
+    );
 
-    const choiceNum = parseInt(campaignChoice);
+    if (choice === null) return;
+
     let selectedCampaignId = "general";
     let campaignName = "General Pool";
 
-    if (choiceNum > 0 && choiceNum <= votingCampaigns.length) {
-      selectedCampaignId = votingCampaigns[choiceNum - 1].id;
-      campaignName = votingCampaigns[choiceNum - 1].name;
+    if (choice === "1") {
+      // Show campaign selector
+      setPendingPurchase({
+        amount: purchaseAmount,
+        url: "mock",
+        timestamp: Date.now(),
+        selectedCampaign: "choose",
+        roundUpAmount,
+        extraDonation,
+        finalAmount
+      });
+      setShowCampaignSelector(true);
+      return;
+    } else if (choice === "0") {
+      selectedCampaignId = "general";
+      campaignName = "General Pool";
+    } else {
+      alert("Invalid choice");
+      return;
     }
 
     const donation = {
@@ -320,7 +365,7 @@ const Dashboard = () => {
         return updated;
       });
 
-      alert(`Thank you! Donation of $${finalAmount.toFixed(2)} recorded for ${campaignName}!`);
+      alert(`Thank you! Donation of ${finalAmount.toFixed(2)} recorded for ${campaignName}!`);
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
@@ -550,6 +595,48 @@ const Dashboard = () => {
       color: "#0369a1",
       fontSize: "11px",
       fontWeight: 600,
+    },
+    campaignSelector: {
+      marginTop: "12px",
+      padding: "0",
+      background: "white",
+      borderRadius: "8px",
+      maxHeight: "250px",
+      overflowY: "auto",
+      border: "1px solid #e2e8f0",
+    },
+    campaignOption: {
+      padding: "12px 16px",
+      marginBottom: "0",
+      background: "white",
+      border: "none",
+      borderBottom: "1px solid #e2e8f0",
+      cursor: "pointer",
+      fontSize: "13px",
+      transition: "background 0.2s",
+    },
+    campaignOptionLast: {
+      borderBottom: "none",
+    },
+    campaignOptionHover: {
+      background: "#eff6ff",
+      borderColor: "#2563eb",
+    },
+    campaignTitle: {
+      fontWeight: 600,
+      marginBottom: "4px",
+      color: "#0f172a",
+    },
+    campaignDesc: {
+      fontSize: "11px",
+      color: "#64748b",
+      lineHeight: "1.4",
+    },
+    selectorHeader: {
+      fontSize: "13px",
+      fontWeight: 600,
+      color: "#475569",
+      marginBottom: "8px",
     }
   };
 
@@ -560,7 +647,8 @@ const Dashboard = () => {
 
   const getCampaignName = (campaignId) => {
     if (campaignId === "general") return "General Pool";
-    const campaign = votingCampaigns.find(c => c.id === campaignId);
+    if (campaignId === "choose") return "Choose Campaign";
+    const campaign = allCampaigns.find(c => c.id === campaignId);
     return campaign ? campaign.name : "Unknown Campaign";
   };
 
@@ -596,30 +684,88 @@ const Dashboard = () => {
                 ${pendingPurchase.amount.toFixed(2)}
               </div>
 
-              <span style={styles.campaignBadge}>
-                → {getCampaignName(pendingPurchase.selectedCampaign)}
-              </span>
+              {!showCampaignSelector ? (
+                <>
+                  <span style={styles.campaignBadge}>
+                    → {getCampaignName(pendingPurchase.selectedCampaign)}
+                  </span>
 
-              <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b" }}>
-                Round up to{" "}
-                <strong>
-                  ${Math.ceil(pendingPurchase.amount).toFixed(2)}
-                </strong>{" "}
-                and donate{" "}
-                <strong style={{ color: "#2563eb" }}>
-                  ${(Math.ceil(pendingPurchase.amount) - pendingPurchase.amount).toFixed(2)}
-                </strong>
-                .
-              </p>
+                  <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b" }}>
+                    Round up to{" "}
+                    <strong>
+                      ${Math.ceil(pendingPurchase.amount).toFixed(2)}
+                    </strong>{" "}
+                    and donate{" "}
+                    <strong style={{ color: "#2563eb" }}>
+                      ${(Math.ceil(pendingPurchase.amount) - pendingPurchase.amount).toFixed(2)}
+                    </strong>
+                    .
+                  </p>
 
-              <div style={styles.buttonGroup}>
-                <button style={styles.confirmBtn} onClick={handleConfirmDonation}>
-                  Confirm Donation
-                </button>
-                <button style={styles.declineBtn} onClick={handleDeclineDonation}>
-                  Not Now
-                </button>
-              </div>
+                  {pendingPurchase.selectedCampaign === "choose" && (
+                    <button 
+                      style={{...styles.confirmBtn, marginBottom: "8px"}}
+                      onClick={() => setShowCampaignSelector(true)}
+                    >
+                      Select Campaign
+                    </button>
+                  )}
+
+                  {pendingPurchase.selectedCampaign !== "choose" && (
+                    <div style={styles.buttonGroup}>
+                      <button style={styles.confirmBtn} onClick={handleConfirmDonation}>
+                        Confirm Donation
+                      </button>
+                      <button style={styles.declineBtn} onClick={handleDeclineDonation}>
+                        Not Now
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div style={styles.selectorHeader}>
+                    Choose which campaign to support:
+                  </div>
+                  <div style={styles.campaignSelector}>
+                    <div 
+                      style={styles.campaignOption}
+                      onClick={() => handleSelectCampaign("general")}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "#eff6ff";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "white";
+                      }}
+                    >
+                      <div style={styles.campaignTitle}>General Pool</div>
+                      <div style={styles.campaignDesc}>Vote later for distribution</div>
+                    </div>
+                    {allCampaigns.map((campaign, idx) => (
+                      <div 
+                        key={campaign.id}
+                        style={idx === allCampaigns.length - 1 ? {...styles.campaignOption, ...styles.campaignOptionLast} : styles.campaignOption}
+                        onClick={() => handleSelectCampaign(campaign.id)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#eff6ff";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "white";
+                        }}
+                      >
+                        <div style={styles.campaignTitle}>{campaign.name}</div>
+                        <div style={styles.campaignDesc}>{campaign.description}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button 
+                    style={{...styles.declineBtn, marginTop: "12px"}} 
+                    onClick={() => setShowCampaignSelector(false)}
+                  >
+                    Back
+                  </button>
+                </>
+              )}
 
               <button style={styles.cancelBtn} onClick={handleCancelDonation}>
                 Cancel this Donation

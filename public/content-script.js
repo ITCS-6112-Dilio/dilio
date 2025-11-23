@@ -35,108 +35,89 @@ function showDilioPanel(amount) {
   const roundedUp = Math.ceil(amount) - amount;
   const roundedUpDisplay = roundedUp.toFixed(2);
 
-  // Fetch voting campaigns for dropdown
-  fetchVotingCampaigns().then(campaigns => {
-    panel.innerHTML = `
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
-        <strong style="font-size:14px;">Round up with Dilio?</strong>
-        <button id="dilio-close" 
-          style="border:none;background:none;font-size:16px;cursor:pointer;line-height:1;">
-          ×
-        </button>
-      </div>
-
-      <p style="margin:0 0 8px 0;">
-        Your total is <strong>$${amount.toFixed(2)}</strong>.<br>
-        Round up <strong>$${roundedUpDisplay}</strong> to support a campus cause.
-      </p>
-
-      <div style="margin: 12px 0;">
-        <label style="display:block; font-size:12px; font-weight:600; margin-bottom:4px; color:#475569;">
-          Choose where to donate:
-        </label>
-        <select id="dilio-campaign-select" style="
-          width:100%;
-          padding:8px;
-          border-radius:6px;
-          border:1px solid #e5e7eb;
-          font-size:13px;
-          background:white;
-          cursor:pointer;
-        ">
-          <option value="general">General Pool (Vote Later)</option>
-          ${campaigns.map(c => `
-            <option value="${c.id}">${c.name}</option>
-          `).join('')}
-        </select>
-      </div>
-
-      <button id="dilio-confirm" style="
-        width:100%;
-        margin-top:8px;
-        padding:8px 0;
-        border-radius:8px;
-        border:none;
-        cursor:pointer;
-        background:#2563eb;
-        color:white;
-        font-weight:600;
-      ">
-        Yes, round up with Dilio
+  panel.innerHTML = `
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+      <strong style="font-size:14px;">Round up with Dilio?</strong>
+      <button id="dilio-close" 
+        style="border:none;background:none;font-size:16px;cursor:pointer;line-height:1;">
+        ×
       </button>
+    </div>
 
-      <button id="dilio-skip" style="
+    <p style="margin:0 0 8px 0;">
+      Your total is <strong>$${amount.toFixed(2)}</strong>.<br>
+      Round up <strong>$${roundedUpDisplay}</strong> to support a campus cause.
+    </p>
+
+    <div style="margin: 12px 0;">
+      <label style="display:block; font-size:12px; font-weight:600; margin-bottom:4px; color:#475569;">
+        Choose where to donate:
+      </label>
+      <select id="dilio-campaign-select" style="
         width:100%;
-        margin-top:6px;
-        padding:6px 0;
-        border-radius:8px;
+        padding:8px;
+        border-radius:6px;
         border:1px solid #e5e7eb;
+        font-size:13px;
         background:white;
         cursor:pointer;
-        font-size:12px;
       ">
-        Not this time
-      </button>
-    `;
+        <option value="general">General Pool (Vote Later)</option>
+        <option value="choose">Choose a Campaign →</option>
+      </select>
+    </div>
 
-    document.body.appendChild(panel);
+    <button id="dilio-confirm" style="
+      width:100%;
+      margin-top:8px;
+      padding:8px 0;
+      border-radius:8px;
+      border:none;
+      cursor:pointer;
+      background:#2563eb;
+      color:white;
+      font-weight:600;
+    ">
+      Yes, round up with Dilio
+    </button>
 
-    document.getElementById("dilio-close").onclick = () => panel.remove();
-    document.getElementById("dilio-skip").onclick = () => panel.remove();
-    document.getElementById("dilio-confirm").onclick = () => {
-      const selectedCampaign = document.getElementById("dilio-campaign-select").value;
-      chrome.storage?.local?.set({ 
-        pendingPurchaseApproved: true,
+    <button id="dilio-skip" style="
+      width:100%;
+      margin-top:6px;
+      padding:6px 0;
+      border-radius:8px;
+      border:1px solid #e5e7eb;
+      background:white;
+      cursor:pointer;
+      font-size:12px;
+    ">
+      Not this time
+    </button>
+  `;
+
+  document.body.appendChild(panel);
+
+  document.getElementById("dilio-close").onclick = () => panel.remove();
+  document.getElementById("dilio-skip").onclick = () => panel.remove();
+  document.getElementById("dilio-confirm").onclick = () => {
+    const selectedCampaign = document.getElementById("dilio-campaign-select").value;
+    
+    // Store selection and open extension
+    chrome.storage?.local?.set({ 
+      pendingPurchaseApproved: true,
+      selectedCampaign: selectedCampaign
+    }, () => {
+      console.log("Dilio: user approved round up for campaign:", selectedCampaign);
+      
+      // Open the extension popup
+      chrome.runtime.sendMessage({
+        type: 'OPEN_EXTENSION',
         selectedCampaign: selectedCampaign
-      }, () => {
-        console.log("Dilio: user approved round up for campaign:", selectedCampaign);
       });
-      panel.remove();
-    };
-  });
-}
-
-// Fetch current voting campaigns from extension storage/API
-async function fetchVotingCampaigns() {
-  try {
-    // Try to get from chrome storage (cached from extension)
-    return new Promise((resolve) => {
-      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        chrome.storage.local.get(['votingCampaigns'], (result) => {
-          if (result.votingCampaigns && result.votingCampaigns.length > 0) {
-            resolve(result.votingCampaigns);
-          } else {
-            resolve([]);
-          }
-        });
-      } else {
-        resolve([]);
-      }
     });
-  } catch (error) {
-    console.error("Error fetching campaigns:", error);
-    return [];
-  }
+    
+    panel.remove();
+  };
 }
 
 function isCheckoutPage() {
