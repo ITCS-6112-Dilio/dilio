@@ -19,10 +19,12 @@ import {
   calculateStats,
   deleteDonation,
   updateDonation,
+} from "../services/donationService";
+import {
   checkAndAwardBadges,
   getUserBadges,
   BADGE_LABELS,
-} from "../services/donationService";
+} from "../services/userService";
 import { useUser } from "../context/UserContext";
 
 const Dashboard = () => {

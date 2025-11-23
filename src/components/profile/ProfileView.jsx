@@ -1,11 +1,12 @@
 ﻿// src/components/profile/ProfileView.jsx
 import { useEffect, useState } from "react";
 import { updateProfile } from "firebase/auth";
-import { getPendingRoleRequests, requestOrganizerRole, updateUserRole } from "../../services/donationService";
+import { getPendingRoleRequests, requestOrganizerRole, updateUserRole } from "../../services/userService";
 import Input from "../Input";
 import Button from "../Button";
 import { useUser } from "../../context/UserContext";
-import { auth } from "../../services/firebase";
+import { auth, db } from "../../services/firebase";
+import { doc, updateDoc } from "firebase/firestore";
 
 const ProfileView = ({ onLogout }) => {
   const { user, setUser } = useUser();
@@ -39,6 +40,9 @@ const ProfileView = ({ onLogout }) => {
     setLoading(true);
     try {
       await updateProfile(auth.currentUser, { displayName: displayName.trim() });
+      await updateDoc(doc(db, "users", user.uid), {
+        displayName: displayName.trim()
+      });
       setUser(prev => ({ ...prev, displayName: displayName.trim() }));
       alert("✅ Profile updated successfully!");
     } catch (error) {
