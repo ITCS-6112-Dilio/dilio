@@ -4,6 +4,8 @@ import app from "./firebase";
 
 const db = getFirestore(app);
 
+const VALID_STATUSES = [ "approved", "pending", "rejected" ];
+
 // CAMPAIGN MANAGEMENT
 export const createCampaign = async (campaign) => {
   try {
@@ -29,18 +31,26 @@ export const updateCampaign = async (campaignId, updates) => {
   }
 };
 
-export const getAllCampaigns = async (status = "approved") => {
+export const getAllCampaigns = async (status) => {
   try {
-    const q = query(
-      collection(db, "campaigns"),
-      where("status", "==", status),
-    );
+    let q;
+    if (status === undefined) {
+      q = query(collection(db, "campaigns"));
+    } else if (VALID_STATUSES.includes(status)) {
+      q = query(collection(db, "campaigns"), where("status", "==", status));
+    } else {
+      throw new Error(
+        `Invalid campaign status '${status}'. Must be one of: ${VALID_STATUSES.join(", ")}`,
+      );
+    }
+
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
     }));
   } catch (error) {
+
     console.error("Error getting campaigns:", error);
     // Return mock data if Firestore fails
     return [
