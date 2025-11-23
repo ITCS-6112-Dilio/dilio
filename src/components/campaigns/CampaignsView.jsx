@@ -1,7 +1,7 @@
 ﻿// src/components/campaigns/CampaignsView.jsx
 import { useState, useEffect } from "react";
-import { getAllCampaigns } from "../../services/donationService";
 import CampaignCard from "./CampaignCard";
+import { getAllCampaigns } from "../../services/campaignService";
 
 const CampaignsView = () => {
   const [campaigns, setCampaigns] = useState([]);

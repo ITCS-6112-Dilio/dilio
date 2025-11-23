@@ -1,6 +1,5 @@
 ﻿// src/components/admin/AdminView.jsx
 import { useEffect, useState } from "react";
-import { approveCampaign, getPendingCampaigns, rejectCampaign } from "../../services/donationService";
 import {
   approveRoleRequest,
   getAllUsers,
@@ -12,6 +11,7 @@ import {
 } from "../../services/userService";
 import Button from "../Button";
 import { useUser } from "../../context/UserContext";
+import { approveCampaign, getPendingCampaigns, rejectCampaign } from "../../services/campaignService";
 
 const AdminView = ({ onBack }) => {
   const { user } = useUser();

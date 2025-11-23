@@ -1,8 +1,8 @@
 ﻿// src/components/campaigns/CreateCampaignView.jsx
 import { useState } from "react";
-import { createCampaign } from "../../services/donationService";
 import Input from "../Input";
 import Button from "../Button";
+import { createCampaign } from "../../services/campaignService";
 
 const CreateCampaignView = ({ onBack, userId }) => {
   const [title, setTitle] = useState("");
