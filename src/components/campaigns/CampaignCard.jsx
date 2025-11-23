@@ -1,5 +1,5 @@
 ﻿// src/components/campaigns/CampaignCard.jsx
-const CampaignCard = ({ campaign }) => {
+const CampaignCard = ({ campaign, editable = false, onEdit }) => {
   const percentage = Math.min((campaign.raised / campaign.goal) * 100, 100);
 
   const styles = {
@@ -59,6 +59,15 @@ const CampaignCard = ({ campaign }) => {
       fontWeight: 600,
       color: "#0f172a",
     },
+    editBtn: {
+      marginTop: 10,
+      padding: "4px 14px",
+      background: "#f1f5f9",
+      border: "1px solid #d1d5db",
+      borderRadius: 6,
+      fontSize: 13,
+      cursor: "pointer",
+    },
   };
 
   return (
@@ -69,7 +78,7 @@ const CampaignCard = ({ campaign }) => {
       </div>
       <p style={styles.description}>{campaign.description}</p>
       <div style={styles.progressBar}>
-        <div style={{ ...styles.progressFill, width: `${percentage}%` }} />
+        <div style={{ ...styles.progressFill, width: `${percentage}%` }}/>
       </div>
       <div style={styles.stats}>
         <span style={styles.statLabel}>
@@ -79,6 +88,11 @@ const CampaignCard = ({ campaign }) => {
           Goal: <span style={styles.statValue}>${campaign.goal}</span>
         </span>
       </div>
+      {editable && (
+        <button style={styles.editBtn} onClick={() => onEdit && onEdit(campaign)}>
+          Edit
+        </button>
+      )}
     </div>
   );
 };

@@ -1,31 +1,31 @@
 ﻿/* global chrome */
 // src/components/Dashboard.jsx
 import { useState, useEffect } from "react";
-import { auth } from "../services/firebase";
+import { auth } from "../../services/firebase";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
-import StatsCard from "./dashboard/StatsCard";
-import QuickActions from "./dashboard/QuickActions";
-import RecentActivity from "./dashboard/RecentActivity";
-import BottomNav from "./dashboard/BottomNav";
-import CampaignsView from "./campaigns/CampaignsView";
-import VotingView from "./voting/VotingView";
-import ProfileView from "./profile/ProfileView";
-import CreateCampaignView from "./campaigns/CreateCampaignView";
-import AdminView from "./admin/AdminView";
+import StatsCard from "./StatsCard";
+import QuickActions from "./QuickActions";
+import RecentActivity from "./RecentActivity";
+import BottomNav from "./BottomNav";
+import CampaignsView from "../campaigns/CampaignsView";
+import VotingView from "../voting/VotingView";
+import ProfileView from "../profile/ProfileView";
+import CreateCampaignView from "../campaigns/CreateCampaignView";
+import AdminView from "../admin/AdminView";
 import {
   getDonations,
   saveDonation,
   calculateStats,
   deleteDonation,
   updateDonation,
-} from "../services/donationService";
+} from "../../services/donationService";
 import {
   checkAndAwardBadges,
   getUserBadges,
   BADGE_LABELS,
-} from "../services/userService";
-import { useUser } from "../context/UserContext";
+} from "../../services/userService";
+import { useUser } from "../../context/UserContext";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -364,6 +364,7 @@ const Dashboard = () => {
     container: {
       width: "100%",
       height: "600px",
+      paddingBottom: "100px",
       background: "#ffffff",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       display: "flex",

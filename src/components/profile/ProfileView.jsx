@@ -86,7 +86,7 @@ const ProfileView = ({ onLogout }) => {
   const styles = {
     container: {
       padding: "20px",
-      paddingBottom: "20px",
+      paddingBottom: "100px",
       height: "520px",
       overflowY: "auto",
     },

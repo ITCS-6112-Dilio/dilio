@@ -2,7 +2,7 @@
 import { BrowserRouter as Router, Navigate, Route, Routes, } from "react-router-dom";
 import SignUp from "./components/auth/SignUp";
 import Login from "./components/auth/Login";
-import Dashboard from "./components/Dashboard";
+import Dashboard from "./components/dashboard/Dashboard";
 import { useUser } from "./context/UserContext";
 
 const PrivateRoute = ({ children }) => {

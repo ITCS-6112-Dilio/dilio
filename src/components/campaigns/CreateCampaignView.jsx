@@ -1,19 +1,19 @@
 ﻿// src/components/campaigns/CreateCampaignView.jsx
 import { useState } from "react";
-import { createCampaign } from "../../services/donationService";
 import Input from "../Input";
 import Button from "../Button";
+import { createCampaign, updateCampaign } from "../../services/campaignService";
 
-const CreateCampaignView = ({ onBack, userId }) => {
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [goal, setGoal] = useState("");
-  const [category, setCategory] = useState("Community");
-  const [loading, setLoading] = useState(false);
+const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
+  const [ title, setTitle ] = useState(campaign?.name || "");
+  const [ description, setDescription ] = useState(campaign?.description || "");
+  const [ goal, setGoal ] = useState(campaign?.goal || "");
+  const [ category, setCategory ] = useState(campaign?.category || "Community");
+  const [ loading, setLoading ] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!title.trim() || !description.trim() || !goal) {
       alert("Please fill in all fields");
       return;
@@ -27,17 +27,28 @@ const CreateCampaignView = ({ onBack, userId }) => {
 
     setLoading(true);
     try {
-      await createCampaign({
-        name: title,
-        description,
-        goal: goalAmount,
-        category,
-        organizerId: userId,
-      });
-      alert("Campaign submitted for admin approval!");
-      onBack();
+      if (campaign && campaign.id) {
+        await updateCampaign(campaign.id, {
+          name: title,
+          description,
+          goal: goalAmount,
+          category,
+        });
+        alert("Campaign updated!");
+        onSave && onSave();
+      } else {
+        await createCampaign({
+          name: title,
+          description,
+          goal: goalAmount,
+          category,
+          organizerId: userId,
+        });
+        alert("Campaign submitted for admin approval!");
+      }
+      onBack && onBack();
     } catch (error) {
-      alert("Error creating campaign: " + error.message);
+      alert("Error creating/updating campaign: " + error.message);
     } finally {
       setLoading(false);
     }
@@ -46,7 +57,7 @@ const CreateCampaignView = ({ onBack, userId }) => {
   const styles = {
     container: {
       padding: "20px",
-      paddingBottom: "20px",
+      paddingBottom: "100px",
       height: "520px",
       overflowY: "auto",
     },
@@ -95,8 +106,14 @@ const CreateCampaignView = ({ onBack, userId }) => {
   return (
     <div style={styles.container}>
       <div style={styles.header}>
-        <h2 style={styles.title}>Create Campaign</h2>
-        <p style={styles.subtitle}>Submit a new fundraising campaign for approval</p>
+        <h2 style={styles.title}>
+          {campaign ? "Edit Campaign" : "Create Campaign"}
+        </h2>
+        <p style={styles.subtitle}>
+          {campaign
+            ? "Update and refine your pending campaign before admin approval."
+            : "Submit a new fundraising campaign for approval."}
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} style={styles.form}>
@@ -134,7 +151,7 @@ const CreateCampaignView = ({ onBack, userId }) => {
           <label style={{ display: "block", marginBottom: "4px", fontWeight: 500, fontSize: "14px" }}>
             Category <span style={{ color: "#b00" }}>*</span>
           </label>
-          <select 
+          <select
             style={styles.select}
             value={category}
             onChange={(e) => setCategory(e.target.value)}
@@ -149,11 +166,13 @@ const CreateCampaignView = ({ onBack, userId }) => {
         </div>
 
         <Button type="submit" disabled={loading}>
-          {loading ? "Submitting..." : "Submit Campaign"}
+          {loading
+            ? (campaign ? "Saving..." : "Submitting...")
+            : (campaign ? "Save Changes" : "Submit Campaign")}
         </Button>
 
         <Button variant="secondary" onClick={onBack} style={styles.backBtn}>
-          Back to Dashboard
+          Back to Campaigns
         </Button>
       </form>
     </div>
