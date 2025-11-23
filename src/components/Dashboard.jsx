@@ -364,6 +364,7 @@ const Dashboard = () => {
     container: {
       width: "100%",
       height: "600px",
+      paddingBottom: "100px",
       background: "#ffffff",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       display: "flex",
