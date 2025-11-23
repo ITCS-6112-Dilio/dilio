@@ -1,23 +1,27 @@
 ﻿// src/components/admin/AdminView.jsx
 import { useEffect, useState } from "react";
+import { approveCampaign, getPendingCampaigns, rejectCampaign } from "../../services/donationService";
 import {
-  approveCampaign,
   approveRoleRequest,
-  getPendingCampaigns,
+  getAllUsers,
   getPendingRoleRequests,
   getUserById,
   getWeeklyReport,
-  rejectCampaign,
   rejectRoleRequest,
-} from "../../services/donationService";
+  updateUserRole,
+} from "../../services/userService";
 import Button from "../Button";
+import { useUser } from "../../context/UserContext";
 
 const AdminView = ({ onBack }) => {
+  const { user } = useUser();
   const [ pendingCampaigns, setPendingCampaigns ] = useState([]);
   const [ roleRequests, setRoleRequests ] = useState([]);
+  const [ allUsers, setAllUsers ] = useState([]);
   const [ weeklyReports, setWeeklyReports ] = useState([]);
   const [ activeTab, setActiveTab ] = useState("campaigns");
   const [ loading, setLoading ] = useState(true);
+  const [ roleChanges, setRoleChanges ] = useState({});
 
   useEffect(() => {
     loadData();
@@ -37,6 +41,9 @@ const AdminView = ({ onBack }) => {
         }),
       );
       setRoleRequests(enrichedRoleRequests);
+
+      const users = await getAllUsers();
+      setAllUsers(users);
 
       const reports = await getWeeklyReport();
       setWeeklyReports(reports);
@@ -86,6 +93,27 @@ const AdminView = ({ onBack }) => {
       loadData();
     } catch (e) {
       alert("Error rejecting role: " + e.message);
+    }
+  };
+
+  const handleRoleChange = (userId, newRole) => {
+    setRoleChanges(prev => ({ ...prev, [userId]: newRole }));
+  };
+
+  const handleSaveRole = async (user) => {
+    const newRole = roleChanges[user.id];
+    if (!newRole || newRole === user.role) return;
+    try {
+      await updateUserRole(user.id, newRole);
+      alert("User role updated!");
+      loadData();
+      setRoleChanges(prev => {
+        const updated = { ...prev };
+        delete updated[user.id];
+        return updated;
+      });
+    } catch (e) {
+      alert("Failed to update role: " + e.message);
     }
   };
 
@@ -232,11 +260,11 @@ const AdminView = ({ onBack }) => {
         <button
           style={{
             ...styles.tab,
-            ...(activeTab === "roleRequests" ? styles.activeTab : {}),
+            ...(activeTab === "roles" ? styles.activeTab : {}),
           }}
-          onClick={() => setActiveTab("roleRequests")}
+          onClick={() => setActiveTab("roles")}
         >
-          Role Requests ({roleRequests.length})
+          User Roles & Role Requests ({roleRequests.length})
         </button>
         <button
           style={{
@@ -282,7 +310,7 @@ const AdminView = ({ onBack }) => {
         </div>
       )}
 
-      {activeTab === "roleRequests" && (
+      {activeTab === "roles" && (
         <div>
           {roleRequests.length === 0 ? (
             <p style={styles.noData}>No pending role requests</p>
@@ -342,6 +370,80 @@ const AdminView = ({ onBack }) => {
               );
             })
           )}
+
+        {/*  new code start here */}
+          <div style={{ marginTop: 24 }}>
+            <h3 style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>Manage User Roles</h3>
+            {allUsers.length === 0 ? (
+              <p className="noData">No users found</p>
+            ) : (
+              <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+                <thead>
+                <tr>
+                  <th align="left">Name / Email</th>
+                  <th align="left">Current Role</th>
+                  <th align="left">Assign Role</th>
+                </tr>
+                </thead>
+                <tbody>
+                {allUsers
+                  .filter(u => u.id !== user.uid)
+                  .map(user => (
+                  <tr key={user.id} style={{ borderBottom: "1px solid #e2e8f0" }}>
+                    <td>
+                      {
+                        user.displayName
+                        ? (
+                          <>
+                            {user.displayName}
+                            <br />
+                            <span style={{ color: "#475569" }}>{user.email}</span>
+                          </>
+                        )
+                        : user.email
+                      }
+                    </td>
+                    <td>{user.role}</td>
+                    <td>
+                      <select
+                        value={roleChanges[user.id] || ""}
+                        onChange={e => handleRoleChange(user.id, e.target.value)}
+                        style={{ marginRight: 8 }}
+                      >
+                        <option value="" disabled>Select Role</option>
+                        {
+                          ["student", "organizer", "admin"]
+                          .filter(role => role !== user.role)
+                          .map(role => (
+                            <option key={role} value={role}>{role}</option>
+                          ))
+                        }
+                      </select>
+                      <button
+                        className={roleChanges[user.id] ? "approveBtn" : ""}
+                        style={{
+                          padding: "4px 12px",
+                          border: "none",
+                          borderRadius: 4,
+                          fontSize: 13,
+                          fontWeight: 600,
+                          cursor: "pointer",
+                          background: roleChanges[user.id] ? "#2563eb" : "#e2e8f0",
+                          color: roleChanges[user.id] ? "#fff" : "#64748b"
+                        }}
+                        disabled={!roleChanges[user.id]}
+                        onClick={() => handleSaveRole(user)}
+                      >
+                        Save
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+          {/*  new code end here */}
         </div>
       )}
 
