@@ -1,5 +1,5 @@
 ﻿/* global chrome */
-// src/components/Dashboard.jsx
+// src/components/dashboard/Dashboard.jsx
 import { useState, useEffect } from "react";
 import { auth } from "../../services/firebase";
 import { signOut } from "firebase/auth";
@@ -25,6 +25,7 @@ import {
   getUserBadges,
   BADGE_LABELS,
 } from "../../services/userService";
+import { getCurrentVotingSession } from "../../services/votingService";
 import { useUser } from "../../context/UserContext";
 
 const Dashboard = () => {
@@ -37,14 +38,19 @@ const Dashboard = () => {
   const [pendingPurchase, setPendingPurchase] = useState(null);
   const [badges, setBadges] = useState([]);
   const [recentBadges, setRecentBadges] = useState([]);
+  const [votingCampaigns, setVotingCampaigns] = useState([]);
 
-  // Safe wrapper for chrome APIs
   const safeChrome = {
     get: (keys, callback) => {
       if (typeof chrome !== "undefined" && chrome?.storage?.local) {
         chrome.storage.local.get(keys, callback);
       } else {
         callback({});
+      }
+    },
+    set: (data) => {
+      if (typeof chrome !== "undefined" && chrome?.storage?.local) {
+        chrome.storage.local.set(data);
       }
     },
     remove: (keys) => {
@@ -59,18 +65,34 @@ const Dashboard = () => {
     },
   };
 
-  // Initial load of donations + check for any existing pending purchase
   useEffect(() => {
     if (userLoading || !user) return;
     loadData();
     checkPendingPurchase();
+    loadVotingCampaigns();
   }, [userLoading, user]);
 
+  const loadVotingCampaigns = async () => {
+    try {
+      const session = await getCurrentVotingSession();
+      if (session && session.campaigns) {
+        setVotingCampaigns(session.campaigns);
+        // Cache in chrome storage for content script
+        safeChrome.set({ votingCampaigns: session.campaigns });
+      }
+    } catch (error) {
+      console.error("Error loading voting campaigns:", error);
+    }
+  };
+
   const checkPendingPurchase = () => {
-    safeChrome.get(["pendingPurchase"], (result) => {
+    safeChrome.get(["pendingPurchase", "selectedCampaign"], (result) => {
       if (result.pendingPurchase) {
-        console.log("Dilio: pendingPurchase loaded on init:", result.pendingPurchase);
-        setPendingPurchase(result.pendingPurchase);
+        console.log("Dilio: pendingPurchase loaded:", result.pendingPurchase);
+        setPendingPurchase({
+          ...result.pendingPurchase,
+          selectedCampaign: result.selectedCampaign || "general"
+        });
       }
     });
   };
@@ -79,10 +101,7 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      console.log("Dilio: current user uid:", user.uid);
       const userDonations = await getDonations(user.uid);
-      console.log("Dilio: donations loaded in Dashboard:", userDonations);
-
       const userBadges = await getUserBadges(user.uid);
 
       setDonations(userDonations);
@@ -101,9 +120,16 @@ const Dashboard = () => {
     const handleStorageChange = (changes, area) => {
       if (area !== "local") return;
 
-      if (changes.pendingPurchase?.newValue) {
-        console.log("Dilio: pendingPurchase updated:", changes.pendingPurchase.newValue);
-        setPendingPurchase(changes.pendingPurchase.newValue);
+      if (changes.pendingPurchase?.newValue || changes.selectedCampaign?.newValue) {
+        const purchase = changes.pendingPurchase?.newValue;
+        const campaign = changes.selectedCampaign?.newValue || "general";
+        
+        if (purchase) {
+          setPendingPurchase({
+            ...purchase,
+            selectedCampaign: campaign
+          });
+        }
       }
     };
 
@@ -131,11 +157,17 @@ const Dashboard = () => {
       return;
     }
 
+    const selectedCampaign = pendingPurchase.selectedCampaign || "general";
+    const campaignName = selectedCampaign === "general" 
+      ? "General Pool" 
+      : votingCampaigns.find(c => c.id === selectedCampaign)?.name || "Unknown Campaign";
+
     const donation = {
       amount: roundUpAmount,
       roundUpAmount,
       purchaseAmount,
-      campaign: "General Pool",
+      campaign: campaignName,
+      campaignId: selectedCampaign,
       timestamp: Date.now(),
       userId: user.uid,
       source: pendingPurchase.url,
@@ -149,22 +181,16 @@ const Dashboard = () => {
         const newStats = calculateStats(updated);
         setStats(newStats);
 
-        // 🔥 Check for new badges after this real round-up
         checkAndAwardBadges(user.uid, updated, newStats)
           .then(async (newBadgeTypes) => {
             if (newBadgeTypes.length > 0) {
               const names = newBadgeTypes
                 .map(type => BADGE_LABELS[type] || type)
                 .join(", ");
-
-              // Toast-style alert for now
               alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}`);
 
-              // Refresh badges for UI
               const freshBadges = await getUserBadges(user.uid);
               setBadges(freshBadges);
-
-              // Show just-earned badges in the dashboard banner
               setRecentBadges(newBadgeTypes);
             }
           })
@@ -173,19 +199,17 @@ const Dashboard = () => {
         return updated;
       });
 
-      // Clear storage + UI
-      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved"]);
+      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
       safeChrome.clearBadge();
       setPendingPurchase(null);
 
-      alert("Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded!");
+      alert("Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded for " + campaignName + "!");
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
   };
 
   const handleDeclineDonation = () => {
-    // Snooze for this popup only
     safeChrome.clearBadge();
     setPendingPurchase(null);
   };
@@ -195,8 +219,7 @@ const Dashboard = () => {
       return;
     }
 
-    // Permanently clear this pending purchase
-    safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved"]);
+    safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
     safeChrome.clearBadge();
     setPendingPurchase(null);
   };
@@ -212,10 +235,8 @@ const Dashboard = () => {
       return;
     }
 
-    // Round-up still computed (will be 0 for whole amounts and for 0)
     const roundUpAmount = Math.ceil(purchaseAmount) - purchaseAmount;
 
-    // Message for whole or zero purchase amounts
     if (roundUpAmount === 0) {
       alert(
         "This purchase does not generate a round-up amount.\n" +
@@ -223,7 +244,6 @@ const Dashboard = () => {
       );
     }
 
-    // Ask user for extra donation
     const extraInput = prompt(
       `Round-up amount is $${roundUpAmount.toFixed(2)}.\n` +
       "Enter any additional donation (optional, e.g., 1.00):"
@@ -240,10 +260,27 @@ const Dashboard = () => {
 
     const finalAmount = roundUpAmount + extraDonation;
 
-    // If purchase was 0 and extra was 0, don’t create a donation
     if (finalAmount <= 0) {
       alert("No donation amount detected.");
       return;
+    }
+
+    // Show campaign selector
+    let campaignOptions = "Choose where to donate:\n0. General Pool (Vote Later)\n";
+    votingCampaigns.forEach((c, idx) => {
+      campaignOptions += `${idx + 1}. ${c.name}\n`;
+    });
+
+    const campaignChoice = prompt(campaignOptions + "\nEnter number:");
+    if (campaignChoice === null) return;
+
+    const choiceNum = parseInt(campaignChoice);
+    let selectedCampaignId = "general";
+    let campaignName = "General Pool";
+
+    if (choiceNum > 0 && choiceNum <= votingCampaigns.length) {
+      selectedCampaignId = votingCampaigns[choiceNum - 1].id;
+      campaignName = votingCampaigns[choiceNum - 1].name;
     }
 
     const donation = {
@@ -251,7 +288,8 @@ const Dashboard = () => {
       roundUpAmount,
       extraDonation,
       purchaseAmount,
-      campaign: "General Pool",
+      campaign: campaignName,
+      campaignId: selectedCampaignId,
       timestamp: Date.now(),
       userId: user.uid,
     };
@@ -264,22 +302,16 @@ const Dashboard = () => {
         const newStats = calculateStats(updated);
         setStats(newStats);
 
-        // Check for new badges after this donation
         checkAndAwardBadges(user.uid, updated, newStats)
           .then(async (newBadgeTypes) => {
             if (newBadgeTypes.length > 0) {
-              // 1) Notification (before they just see it sitting in the UI)
               const names = newBadgeTypes
                 .map(type => BADGE_LABELS[type] || type)
                 .join(", ");
-
               alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}`);
 
-              // 2) Refresh full badge list for display
               const freshBadges = await getUserBadges(user.uid);
               setBadges(freshBadges);
-
-              // 3) Save which ones were just earned (optional banner in UI)
               setRecentBadges(newBadgeTypes);
             }
           })
@@ -288,11 +320,7 @@ const Dashboard = () => {
         return updated;
       });
 
-      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved"]);
-      safeChrome.clearBadge();
-      setPendingPurchase(null);
-
-      alert("Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded!");
+      alert(`Thank you! Donation of $${finalAmount.toFixed(2)} recorded for ${campaignName}!`);
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
@@ -306,15 +334,11 @@ const Dashboard = () => {
     try {
       await deleteDonation(donationId);
 
-      // Update local state so only ONE donation disappears
       setDonations(prev => {
         const updated = prev.filter(d => d.id !== donationId);
         setStats(calculateStats(updated));
         return updated;
       });
-
-      // Optional: sync from Firestore if you care about other-device changes
-      // await loadData();
 
       alert("Donation deleted successfully");
     } catch (error) {
@@ -335,7 +359,6 @@ const Dashboard = () => {
     try {
       await updateDonation(donation.id, { amount });
 
-      // update local state + stats immediately
       setDonations(prev => {
         const updated = prev.map(d =>
           d.id === donation.id ? { ...d, amount } : d
@@ -343,9 +366,6 @@ const Dashboard = () => {
         setStats(calculateStats(updated));
         return updated;
       });
-
-      // Optional: keep this if you want a fresh read from Firestore
-      // await loadData();
 
       alert("Donation updated successfully");
     } catch (error) {
@@ -363,7 +383,8 @@ const Dashboard = () => {
   const styles = {
     container: {
       width: "100%",
-      height: "520px",       
+      height: "600px",
+      paddingBottom: "100px",
       background: "#ffffff",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       display: "flex",
@@ -387,7 +408,7 @@ const Dashboard = () => {
     },
     content: {
       padding: "20px",
-      paddingBottom: "100px",  
+      paddingBottom: "20px",
       flex: 1,
       overflowY: "auto",
       overflowX: "hidden",
@@ -448,6 +469,15 @@ const Dashboard = () => {
       fontSize: "24px",
       fontWeight: 700,
       color: "#2563eb",
+      marginBottom: "8px",
+    },
+    campaignBadge: {
+      display: "inline-block",
+      fontSize: "11px",
+      padding: "3px 10px",
+      background: "#dbeafe",
+      color: "#1e40af",
+      borderRadius: "12px",
       marginBottom: "12px",
     },
     buttonGroup: {
@@ -507,11 +537,9 @@ const Dashboard = () => {
       fontSize: "12px",
       color: "#166534",
     },
-
     badgeRow: {
       marginBottom: "16px",
     },
-
     badgeChip: {
       display: "inline-block",
       marginRight: "6px",
@@ -528,6 +556,12 @@ const Dashboard = () => {
   const getInitials = (email) => {
     const name = email.split("@")[0];
     return name.slice(0, 2).toUpperCase();
+  };
+
+  const getCampaignName = (campaignId) => {
+    if (campaignId === "general") return "General Pool";
+    const campaign = votingCampaigns.find(c => c.id === campaignId);
+    return campaign ? campaign.name : "Unknown Campaign";
   };
 
   if (loading || userLoading) {
@@ -558,12 +592,14 @@ const Dashboard = () => {
             <div style={styles.purchaseAlert}>
               <div style={styles.purchaseTitle}>🛒 Purchase Detected!</div>
 
-              {/* Purchase total */}
               <div style={styles.purchaseAmount}>
                 ${pendingPurchase.amount.toFixed(2)}
               </div>
 
-              {/* Round-up + donation */}
+              <span style={styles.campaignBadge}>
+                → {getCampaignName(pendingPurchase.selectedCampaign)}
+              </span>
+
               <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b" }}>
                 Round up to{" "}
                 <strong>
@@ -588,7 +624,6 @@ const Dashboard = () => {
               <button style={styles.cancelBtn} onClick={handleCancelDonation}>
                 Cancel this Donation
               </button>
-
             </div>
           )}
 
@@ -603,7 +638,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* 🔔 Just-earned badge notification */}
           {recentBadges.length > 0 && (
             <div style={styles.badgeToast}>
               <div style={{ fontWeight: 600 }}>🎉 New badge unlocked!</div>
@@ -615,7 +649,6 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* All badges */}
           {badges.length > 0 && (
             <div style={styles.badgeRow}>
               {badges.map(badge => (

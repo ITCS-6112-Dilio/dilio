@@ -1,10 +1,19 @@
 ﻿// src/services/campaignService.js
-import { addDoc, collection, doc, getDocs, getFirestore, query, updateDoc, where } from "firebase/firestore";
+import { 
+  addDoc, 
+  collection, 
+  doc, 
+  getDocs, 
+  getFirestore, 
+  query, 
+  updateDoc, 
+  where 
+} from "firebase/firestore";
 import app from "./firebase";
 
 const db = getFirestore(app);
 
-const VALID_STATUSES = [ "approved", "pending", "rejected" ];
+const VALID_STATUSES = ["approved", "pending", "rejected"];
 
 // CAMPAIGN MANAGEMENT
 export const createCampaign = async (campaign) => {
@@ -50,9 +59,7 @@ export const getAllCampaigns = async (status) => {
       ...doc.data(),
     }));
   } catch (error) {
-
     console.error("Error getting campaigns:", error);
-    // Return mock data if Firestore fails
     return [
       {
         id: "1",
@@ -91,6 +98,37 @@ export const getAllCampaigns = async (status) => {
         status: "approved",
       },
     ];
+  }
+};
+
+// Get campaigns by organizer ID
+export const getCampaignsByOrganizer = async (organizerId) => {
+  try {
+    const q = query(
+      collection(db, "campaigns"),
+      where("organizerId", "==", organizerId)
+    );
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+  } catch (error) {
+    console.error("Error getting organizer campaigns:", error);
+    return [];
+  }
+};
+
+// Calculate total raised across all organizer's campaigns
+export const getOrganizerTotalRaised = async (organizerId) => {
+  try {
+    const campaigns = await getCampaignsByOrganizer(organizerId);
+    return campaigns.reduce((total, campaign) => {
+      return total + (Number(campaign.raised) || 0);
+    }, 0);
+  } catch (error) {
+    console.error("Error calculating organizer total:", error);
+    return 0;
   }
 };
 
