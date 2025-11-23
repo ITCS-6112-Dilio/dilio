@@ -1,13 +1,11 @@
-﻿// Content script to detect checkout pages
+﻿// public/content-script.js
 console.log('Dilio: Content script loaded on', window.location.href);
 
 function showDilioPanel(amount) {
   console.log('Dilio: showDilioPanel called with amount:', amount);
 
-  // Prevent duplicates
   if (document.getElementById('dilio-panel')) return;
 
-  // Store pending purchase immediately so Dashboard can process it
   chrome.storage?.local?.set(
     {
       pendingPurchase: {
@@ -22,7 +20,6 @@ function showDilioPanel(amount) {
   const panel = document.createElement("div");
   panel.id = "dilio-panel";
 
-  
   panel.style.position = "fixed";
   panel.style.bottom = "20px";
   panel.style.right = "20px";
@@ -38,7 +35,6 @@ function showDilioPanel(amount) {
   const roundedUp = Math.ceil(amount) - amount;
   const roundedUpDisplay = roundedUp.toFixed(2);
 
-  
   panel.innerHTML = `
     <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
       <strong style="font-size:14px;">Round up with Dilio?</strong>
@@ -52,6 +48,24 @@ function showDilioPanel(amount) {
       Your total is <strong>$${amount.toFixed(2)}</strong>.<br>
       Round up <strong>$${roundedUpDisplay}</strong> to support a campus cause.
     </p>
+
+    <div style="margin: 12px 0;">
+      <label style="display:block; font-size:12px; font-weight:600; margin-bottom:4px; color:#475569;">
+        Choose where to donate:
+      </label>
+      <select id="dilio-campaign-select" style="
+        width:100%;
+        padding:8px;
+        border-radius:6px;
+        border:1px solid #e5e7eb;
+        font-size:13px;
+        background:white;
+        cursor:pointer;
+      ">
+        <option value="general">General Pool (Vote Later)</option>
+        <option value="choose">Choose a Campaign →</option>
+      </select>
+    </div>
 
     <button id="dilio-confirm" style="
       width:100%;
@@ -83,17 +97,25 @@ function showDilioPanel(amount) {
 
   document.body.appendChild(panel);
 
-  // Close
   document.getElementById("dilio-close").onclick = () => panel.remove();
-
-  // Skip
   document.getElementById("dilio-skip").onclick = () => panel.remove();
-
-  // Confirm
   document.getElementById("dilio-confirm").onclick = () => {
-    chrome.storage?.local?.set({ pendingPurchaseApproved: true }, () => {
-      console.log("Dilio: user approved round up");
+    const selectedCampaign = document.getElementById("dilio-campaign-select").value;
+    
+    // Store selection and open extension
+    chrome.storage?.local?.set({ 
+      pendingPurchaseApproved: true,
+      selectedCampaign: selectedCampaign
+    }, () => {
+      console.log("Dilio: user approved round up for campaign:", selectedCampaign);
+      
+      // Open the extension popup
+      chrome.runtime.sendMessage({
+        type: 'OPEN_EXTENSION',
+        selectedCampaign: selectedCampaign
+      });
     });
+    
     panel.remove();
   };
 }
@@ -113,7 +135,6 @@ function isCheckoutPage() {
 }
 
 function extractAmount() {
-  // Look at all "total-ish" elements
   const elements = document.querySelectorAll(
     '[class*="total"], [id*="total"], [data-test*="total"]'
   );
@@ -126,16 +147,13 @@ function extractAmount() {
     const text = (el.textContent || '').trim().replace(/\s+/g, ' ');
     if (!text) return;
 
-    // Log what we're seeing
     console.log('Dilio: candidate text:', `"${text}"`);
 
-    // Find ALL prices in this text (subtotal, previous subtotal, estimated total, etc.)
     const priceRegex = /\$([0-9,]+\.?[0-9]*)/g;
     let match;
     while ((match = priceRegex.exec(text)) !== null) {
       const value = parseFloat(match[1].replace(/,/g, ''));
       console.log('Dilio:  -> found price', value, 'in text:', `"${text}"`);
-      // Take the *last* seen price; often the final one is "estimated total"
       lastAmount = value;
     }
   });
@@ -144,11 +162,9 @@ function extractAmount() {
   return lastAmount;
 }
 
-
 if (isCheckoutPage()) {
   console.log('Dilio: Checkout page detected!');
 
-  // First pass – might be 0 or null
   let amount = extractAmount();
   console.log('Dilio: Initial extracted amount inside content script:', amount);
 
@@ -201,7 +217,6 @@ if (isCheckoutPage()) {
     subtree: true
   });
 
-  // Second pass after Walmart finishes rendering totals
   setTimeout(() => {
     const laterAmount = extractAmount();
     console.log('Dilio: Amount detected on page load:', laterAmount);

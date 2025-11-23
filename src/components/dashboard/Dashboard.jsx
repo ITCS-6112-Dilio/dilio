@@ -1,5 +1,5 @@
 ﻿/* global chrome */
-// src/components/Dashboard.jsx
+// src/components/dashboard/Dashboard.jsx
 import { useState, useEffect } from "react";
 import { auth } from "../../services/firebase";
 import { signOut } from "firebase/auth";
@@ -25,6 +25,8 @@ import {
   getUserBadges,
   BADGE_LABELS,
 } from "../../services/userService";
+import { getCurrentVotingSession } from "../../services/votingService";
+import { getAllCampaigns } from "../../services/campaignService";
 import { useUser } from "../../context/UserContext";
 
 const Dashboard = () => {
@@ -37,14 +39,21 @@ const Dashboard = () => {
   const [pendingPurchase, setPendingPurchase] = useState(null);
   const [badges, setBadges] = useState([]);
   const [recentBadges, setRecentBadges] = useState([]);
+  const [votingCampaigns, setVotingCampaigns] = useState([]);
+  const [allCampaigns, setAllCampaigns] = useState([]);
+  const [showCampaignSelector, setShowCampaignSelector] = useState(false);
 
-  // Safe wrapper for chrome APIs
   const safeChrome = {
     get: (keys, callback) => {
       if (typeof chrome !== "undefined" && chrome?.storage?.local) {
         chrome.storage.local.get(keys, callback);
       } else {
         callback({});
+      }
+    },
+    set: (data) => {
+      if (typeof chrome !== "undefined" && chrome?.storage?.local) {
+        chrome.storage.local.set(data);
       }
     },
     remove: (keys) => {
@@ -59,18 +68,37 @@ const Dashboard = () => {
     },
   };
 
-  // Initial load of donations + check for any existing pending purchase
   useEffect(() => {
     if (userLoading || !user) return;
     loadData();
+    loadAllCampaigns();
     checkPendingPurchase();
   }, [userLoading, user]);
 
+  const loadAllCampaigns = async () => {
+    try {
+      const campaigns = await getAllCampaigns("approved");
+      setAllCampaigns(campaigns);
+    } catch (error) {
+      console.error("Error loading all campaigns:", error);
+    }
+  };
+
   const checkPendingPurchase = () => {
-    safeChrome.get(["pendingPurchase"], (result) => {
+    safeChrome.get(["pendingPurchase", "selectedCampaign"], (result) => {
       if (result.pendingPurchase) {
-        console.log("Dilio: pendingPurchase loaded on init:", result.pendingPurchase);
-        setPendingPurchase(result.pendingPurchase);
+        console.log("Dilio: pendingPurchase loaded:", result.pendingPurchase);
+        const selectedCampaign = result.selectedCampaign || "general";
+        
+        setPendingPurchase({
+          ...result.pendingPurchase,
+          selectedCampaign: selectedCampaign
+        });
+
+        // If user selected "choose", show campaign selector
+        if (selectedCampaign === "choose") {
+          setShowCampaignSelector(true);
+        }
       }
     });
   };
@@ -79,10 +107,7 @@ const Dashboard = () => {
     if (!user) return;
 
     try {
-      console.log("Dilio: current user uid:", user.uid);
       const userDonations = await getDonations(user.uid);
-      console.log("Dilio: donations loaded in Dashboard:", userDonations);
-
       const userBadges = await getUserBadges(user.uid);
 
       setDonations(userDonations);
@@ -101,15 +126,34 @@ const Dashboard = () => {
     const handleStorageChange = (changes, area) => {
       if (area !== "local") return;
 
-      if (changes.pendingPurchase?.newValue) {
-        console.log("Dilio: pendingPurchase updated:", changes.pendingPurchase.newValue);
-        setPendingPurchase(changes.pendingPurchase.newValue);
+      if (changes.pendingPurchase?.newValue || changes.selectedCampaign?.newValue) {
+        const purchase = changes.pendingPurchase?.newValue;
+        const campaign = changes.selectedCampaign?.newValue || "general";
+        
+        if (purchase) {
+          setPendingPurchase({
+            ...purchase,
+            selectedCampaign: campaign
+          });
+
+          if (campaign === "choose") {
+            setShowCampaignSelector(true);
+          }
+        }
       }
     };
 
     chrome.storage.onChanged.addListener(handleStorageChange);
     return () => chrome.storage.onChanged.removeListener(handleStorageChange);
   }, []);
+
+  const handleSelectCampaign = (campaignId) => {
+    setPendingPurchase(prev => ({
+      ...prev,
+      selectedCampaign: campaignId
+    }));
+    setShowCampaignSelector(false);
+  };
 
   const handleConfirmDonation = async () => {
     if (!pendingPurchase || !pendingPurchase.amount) {
@@ -131,11 +175,20 @@ const Dashboard = () => {
       return;
     }
 
+    const selectedCampaign = pendingPurchase.selectedCampaign || "general";
+    
+    let campaignName = "General Pool";
+    if (selectedCampaign !== "general") {
+      const campaign = allCampaigns.find(c => c.id === selectedCampaign);
+      campaignName = campaign ? campaign.name : "Unknown Campaign";
+    }
+
     const donation = {
       amount: roundUpAmount,
       roundUpAmount,
       purchaseAmount,
-      campaign: "General Pool",
+      campaign: campaignName,
+      campaignId: selectedCampaign,
       timestamp: Date.now(),
       userId: user.uid,
       source: pendingPurchase.url,
@@ -149,22 +202,16 @@ const Dashboard = () => {
         const newStats = calculateStats(updated);
         setStats(newStats);
 
-        // 🔥 Check for new badges after this real round-up
         checkAndAwardBadges(user.uid, updated, newStats)
           .then(async (newBadgeTypes) => {
             if (newBadgeTypes.length > 0) {
               const names = newBadgeTypes
                 .map(type => BADGE_LABELS[type] || type)
                 .join(", ");
-
-              // Toast-style alert for now
               alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}`);
 
-              // Refresh badges for UI
               const freshBadges = await getUserBadges(user.uid);
               setBadges(freshBadges);
-
-              // Show just-earned badges in the dashboard banner
               setRecentBadges(newBadgeTypes);
             }
           })
@@ -173,21 +220,21 @@ const Dashboard = () => {
         return updated;
       });
 
-      // Clear storage + UI
-      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved"]);
+      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
       safeChrome.clearBadge();
       setPendingPurchase(null);
+      setShowCampaignSelector(false);
 
-      alert("Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded!");
+      alert("Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded for " + campaignName + "!");
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
   };
 
   const handleDeclineDonation = () => {
-    // Snooze for this popup only
     safeChrome.clearBadge();
     setPendingPurchase(null);
+    setShowCampaignSelector(false);
   };
 
   const handleCancelDonation = () => {
@@ -195,10 +242,10 @@ const Dashboard = () => {
       return;
     }
 
-    // Permanently clear this pending purchase
-    safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved"]);
+    safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
     safeChrome.clearBadge();
     setPendingPurchase(null);
+    setShowCampaignSelector(false);
   };
 
   const handleMockPurchase = async () => {
@@ -212,10 +259,8 @@ const Dashboard = () => {
       return;
     }
 
-    // Round-up still computed (will be 0 for whole amounts and for 0)
     const roundUpAmount = Math.ceil(purchaseAmount) - purchaseAmount;
 
-    // Message for whole or zero purchase amounts
     if (roundUpAmount === 0) {
       alert(
         "This purchase does not generate a round-up amount.\n" +
@@ -223,9 +268,8 @@ const Dashboard = () => {
       );
     }
 
-    // Ask user for extra donation
     const extraInput = prompt(
-      `Round-up amount is $${roundUpAmount.toFixed(2)}.\n` +
+      `Round-up amount is ${roundUpAmount.toFixed(2)}.\n` +
       "Enter any additional donation (optional, e.g., 1.00):"
     );
 
@@ -238,11 +282,49 @@ const Dashboard = () => {
 
     if (!extraInput) extraDonation = 0;
 
-    const finalAmount = roundUpAmount + extraDonation;
+    const finalAmount = Math.round((roundUpAmount + extraDonation) * 100) / 100;
 
-    // If purchase was 0 and extra was 0, don’t create a donation
     if (finalAmount <= 0) {
       alert("No donation amount detected.");
+      return;
+    }
+
+    // Show campaign options
+    const choiceMap = {
+      "0": { id: "general", name: "General Pool" },
+      "1": { id: "choose", name: "Choose Campaign" }
+    };
+
+    const choice = prompt(
+      "Choose where to donate:\n" +
+      "0. General Pool (Vote Later)\n" +
+      "1. Choose a Campaign\n\n" +
+      "Enter number:"
+    );
+
+    if (choice === null) return;
+
+    let selectedCampaignId = "general";
+    let campaignName = "General Pool";
+
+    if (choice === "1") {
+      // Show campaign selector
+      setPendingPurchase({
+        amount: purchaseAmount,
+        url: "mock",
+        timestamp: Date.now(),
+        selectedCampaign: "choose",
+        roundUpAmount,
+        extraDonation,
+        finalAmount
+      });
+      setShowCampaignSelector(true);
+      return;
+    } else if (choice === "0") {
+      selectedCampaignId = "general";
+      campaignName = "General Pool";
+    } else {
+      alert("Invalid choice");
       return;
     }
 
@@ -251,7 +333,8 @@ const Dashboard = () => {
       roundUpAmount,
       extraDonation,
       purchaseAmount,
-      campaign: "General Pool",
+      campaign: campaignName,
+      campaignId: selectedCampaignId,
       timestamp: Date.now(),
       userId: user.uid,
     };
@@ -264,22 +347,16 @@ const Dashboard = () => {
         const newStats = calculateStats(updated);
         setStats(newStats);
 
-        // Check for new badges after this donation
         checkAndAwardBadges(user.uid, updated, newStats)
           .then(async (newBadgeTypes) => {
             if (newBadgeTypes.length > 0) {
-              // 1) Notification (before they just see it sitting in the UI)
               const names = newBadgeTypes
                 .map(type => BADGE_LABELS[type] || type)
                 .join(", ");
-
               alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}`);
 
-              // 2) Refresh full badge list for display
               const freshBadges = await getUserBadges(user.uid);
               setBadges(freshBadges);
-
-              // 3) Save which ones were just earned (optional banner in UI)
               setRecentBadges(newBadgeTypes);
             }
           })
@@ -288,11 +365,7 @@ const Dashboard = () => {
         return updated;
       });
 
-      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved"]);
-      safeChrome.clearBadge();
-      setPendingPurchase(null);
-
-      alert("Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded!");
+      alert(`Thank you! Donation of ${finalAmount.toFixed(2)} recorded for ${campaignName}!`);
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
@@ -306,15 +379,11 @@ const Dashboard = () => {
     try {
       await deleteDonation(donationId);
 
-      // Update local state so only ONE donation disappears
       setDonations(prev => {
         const updated = prev.filter(d => d.id !== donationId);
         setStats(calculateStats(updated));
         return updated;
       });
-
-      // Optional: sync from Firestore if you care about other-device changes
-      // await loadData();
 
       alert("Donation deleted successfully");
     } catch (error) {
@@ -335,7 +404,6 @@ const Dashboard = () => {
     try {
       await updateDonation(donation.id, { amount });
 
-      // update local state + stats immediately
       setDonations(prev => {
         const updated = prev.map(d =>
           d.id === donation.id ? { ...d, amount } : d
@@ -343,9 +411,6 @@ const Dashboard = () => {
         setStats(calculateStats(updated));
         return updated;
       });
-
-      // Optional: keep this if you want a fresh read from Firestore
-      // await loadData();
 
       alert("Donation updated successfully");
     } catch (error) {
@@ -363,7 +428,8 @@ const Dashboard = () => {
   const styles = {
     container: {
       width: "100%",
-      height: "520px",       
+      height: "600px",
+      paddingBottom: "100px",
       background: "#ffffff",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       display: "flex",
@@ -387,7 +453,7 @@ const Dashboard = () => {
     },
     content: {
       padding: "20px",
-      paddingBottom: "100px",  
+      paddingBottom: "20px",
       flex: 1,
       overflowY: "auto",
       overflowX: "hidden",
@@ -448,6 +514,15 @@ const Dashboard = () => {
       fontSize: "24px",
       fontWeight: 700,
       color: "#2563eb",
+      marginBottom: "8px",
+    },
+    campaignBadge: {
+      display: "inline-block",
+      fontSize: "11px",
+      padding: "3px 10px",
+      background: "#dbeafe",
+      color: "#1e40af",
+      borderRadius: "12px",
       marginBottom: "12px",
     },
     buttonGroup: {
@@ -507,11 +582,9 @@ const Dashboard = () => {
       fontSize: "12px",
       color: "#166534",
     },
-
     badgeRow: {
       marginBottom: "16px",
     },
-
     badgeChip: {
       display: "inline-block",
       marginRight: "6px",
@@ -522,12 +595,61 @@ const Dashboard = () => {
       color: "#0369a1",
       fontSize: "11px",
       fontWeight: 600,
+    },
+    campaignSelector: {
+      marginTop: "12px",
+      padding: "0",
+      background: "white",
+      borderRadius: "8px",
+      maxHeight: "250px",
+      overflowY: "auto",
+      border: "1px solid #e2e8f0",
+    },
+    campaignOption: {
+      padding: "12px 16px",
+      marginBottom: "0",
+      background: "white",
+      border: "none",
+      borderBottom: "1px solid #e2e8f0",
+      cursor: "pointer",
+      fontSize: "13px",
+      transition: "background 0.2s",
+    },
+    campaignOptionLast: {
+      borderBottom: "none",
+    },
+    campaignOptionHover: {
+      background: "#eff6ff",
+      borderColor: "#2563eb",
+    },
+    campaignTitle: {
+      fontWeight: 600,
+      marginBottom: "4px",
+      color: "#0f172a",
+    },
+    campaignDesc: {
+      fontSize: "11px",
+      color: "#64748b",
+      lineHeight: "1.4",
+    },
+    selectorHeader: {
+      fontSize: "13px",
+      fontWeight: 600,
+      color: "#475569",
+      marginBottom: "8px",
     }
   };
 
   const getInitials = (email) => {
     const name = email.split("@")[0];
     return name.slice(0, 2).toUpperCase();
+  };
+
+  const getCampaignName = (campaignId) => {
+    if (campaignId === "general") return "General Pool";
+    if (campaignId === "choose") return "Choose Campaign";
+    const campaign = allCampaigns.find(c => c.id === campaignId);
+    return campaign ? campaign.name : "Unknown Campaign";
   };
 
   if (loading || userLoading) {
@@ -558,37 +680,96 @@ const Dashboard = () => {
             <div style={styles.purchaseAlert}>
               <div style={styles.purchaseTitle}>🛒 Purchase Detected!</div>
 
-              {/* Purchase total */}
               <div style={styles.purchaseAmount}>
                 ${pendingPurchase.amount.toFixed(2)}
               </div>
 
-              {/* Round-up + donation */}
-              <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b" }}>
-                Round up to{" "}
-                <strong>
-                  ${Math.ceil(pendingPurchase.amount).toFixed(2)}
-                </strong>{" "}
-                and donate{" "}
-                <strong style={{ color: "#2563eb" }}>
-                  ${(Math.ceil(pendingPurchase.amount) - pendingPurchase.amount).toFixed(2)}
-                </strong>
-                .
-              </p>
+              {!showCampaignSelector ? (
+                <>
+                  <span style={styles.campaignBadge}>
+                    → {getCampaignName(pendingPurchase.selectedCampaign)}
+                  </span>
 
-              <div style={styles.buttonGroup}>
-                <button style={styles.confirmBtn} onClick={handleConfirmDonation}>
-                  Confirm Donation
-                </button>
-                <button style={styles.declineBtn} onClick={handleDeclineDonation}>
-                  Not Now
-                </button>
-              </div>
+                  <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b" }}>
+                    Round up to{" "}
+                    <strong>
+                      ${Math.ceil(pendingPurchase.amount).toFixed(2)}
+                    </strong>{" "}
+                    and donate{" "}
+                    <strong style={{ color: "#2563eb" }}>
+                      ${(Math.ceil(pendingPurchase.amount) - pendingPurchase.amount).toFixed(2)}
+                    </strong>
+                    .
+                  </p>
+
+                  {pendingPurchase.selectedCampaign === "choose" && (
+                    <button 
+                      style={{...styles.confirmBtn, marginBottom: "8px"}}
+                      onClick={() => setShowCampaignSelector(true)}
+                    >
+                      Select Campaign
+                    </button>
+                  )}
+
+                  {pendingPurchase.selectedCampaign !== "choose" && (
+                    <div style={styles.buttonGroup}>
+                      <button style={styles.confirmBtn} onClick={handleConfirmDonation}>
+                        Confirm Donation
+                      </button>
+                      <button style={styles.declineBtn} onClick={handleDeclineDonation}>
+                        Not Now
+                      </button>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  <div style={styles.selectorHeader}>
+                    Choose which campaign to support:
+                  </div>
+                  <div style={styles.campaignSelector}>
+                    <div 
+                      style={styles.campaignOption}
+                      onClick={() => handleSelectCampaign("general")}
+                      onMouseEnter={(e) => {
+                        e.currentTarget.style.background = "#eff6ff";
+                      }}
+                      onMouseLeave={(e) => {
+                        e.currentTarget.style.background = "white";
+                      }}
+                    >
+                      <div style={styles.campaignTitle}>General Pool</div>
+                      <div style={styles.campaignDesc}>Vote later for distribution</div>
+                    </div>
+                    {allCampaigns.map((campaign, idx) => (
+                      <div 
+                        key={campaign.id}
+                        style={idx === allCampaigns.length - 1 ? {...styles.campaignOption, ...styles.campaignOptionLast} : styles.campaignOption}
+                        onClick={() => handleSelectCampaign(campaign.id)}
+                        onMouseEnter={(e) => {
+                          e.currentTarget.style.background = "#eff6ff";
+                        }}
+                        onMouseLeave={(e) => {
+                          e.currentTarget.style.background = "white";
+                        }}
+                      >
+                        <div style={styles.campaignTitle}>{campaign.name}</div>
+                        <div style={styles.campaignDesc}>{campaign.description}</div>
+                      </div>
+                    ))}
+                  </div>
+                  <button 
+                    style={{...styles.declineBtn, marginTop: "12px"}} 
+                    onClick={() => setShowCampaignSelector(false)}
+                  >
+                    Back
+                  </button>
+                </>
+              )}
 
               <button style={styles.cancelBtn} onClick={handleCancelDonation}>
                 Cancel this Donation
               </button>
-
             </div>
           )}
 
@@ -603,7 +784,6 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* 🔔 Just-earned badge notification */}
           {recentBadges.length > 0 && (
             <div style={styles.badgeToast}>
               <div style={{ fontWeight: 600 }}>🎉 New badge unlocked!</div>
@@ -615,7 +795,6 @@ const Dashboard = () => {
             </div>
           )}
 
-          {/* All badges */}
           {badges.length > 0 && (
             <div style={styles.badgeRow}>
               {badges.map(badge => (
