@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import CampaignCard from "./CampaignCard";
 import { getAllCampaigns } from "../../services/campaignService";
 import { useUser } from "../../context/UserContext";
+import CreateCampaignView from "./CreateCampaignView";
 
 const CampaignsView = () => {
   const { user } = useUser();
@@ -10,6 +11,7 @@ const CampaignsView = () => {
   const [ loading, setLoading ] = useState(true);
   const [ activeTab, setActiveTab ] = useState("active");
   const [ yourCampaignsStatus, setYourCampaignsStatus ] = useState("pending");
+  const [ editingCampaign, setEditingCampaign ] = useState(null);
 
   useEffect(() => {
     loadCampaigns();
@@ -69,7 +71,7 @@ const CampaignsView = () => {
           style={{
             fontWeight: activeTab === "active" ? 700 : 400,
             borderBottom: activeTab === "active" ? "2px solid #2563eb" : "none",
-            background: "none", border: "none", fontSize: "18px", cursor: "pointer"
+            background: "none", border: "none", fontSize: "18px", cursor: "pointer",
           }}
           onClick={() => setActiveTab("active")}
         >
@@ -80,7 +82,7 @@ const CampaignsView = () => {
             style={{
               fontWeight: activeTab === "yours" ? 700 : 400,
               borderBottom: activeTab === "yours" ? "2px solid #2563eb" : "none",
-              background: "none", border: "none", fontSize: "18px", cursor: "pointer"
+              background: "none", border: "none", fontSize: "18px", cursor: "pointer",
             }}
             onClick={() => setActiveTab("yours")}
           >
@@ -94,7 +96,7 @@ const CampaignsView = () => {
           {campaigns
             .filter(c => c.status === "approved")
             .map(campaign => (
-              <CampaignCard key={campaign.id} campaign={campaign} />
+              <CampaignCard key={campaign.id} campaign={campaign}/>
             ))}
         </div>
       )}
@@ -106,7 +108,7 @@ const CampaignsView = () => {
               style={{
                 fontWeight: yourCampaignsStatus === "pending" ? 700 : 400,
                 borderBottom: yourCampaignsStatus === "pending" ? "2px solid #2563eb" : "none",
-                background: "none", border: "none", fontSize: "15px", cursor: "pointer"
+                background: "none", border: "none", fontSize: "15px", cursor: "pointer",
               }}
               onClick={() => setYourCampaignsStatus("pending")}
             >
@@ -116,7 +118,7 @@ const CampaignsView = () => {
               style={{
                 fontWeight: yourCampaignsStatus === "approved" ? 700 : 400,
                 borderBottom: yourCampaignsStatus === "approved" ? "2px solid #2563eb" : "none",
-                background: "none", border: "none", fontSize: "15px", cursor: "pointer"
+                background: "none", border: "none", fontSize: "15px", cursor: "pointer",
               }}
               onClick={() => setYourCampaignsStatus("approved")}
             >
@@ -126,27 +128,41 @@ const CampaignsView = () => {
               style={{
                 fontWeight: yourCampaignsStatus === "rejected" ? 700 : 400,
                 borderBottom: yourCampaignsStatus === "rejected" ? "2px solid #2563eb" : "none",
-                background: "none", border: "none", fontSize: "15px", cursor: "pointer"
+                background: "none", border: "none", fontSize: "15px", cursor: "pointer",
               }}
               onClick={() => setYourCampaignsStatus("rejected")}
             >
               Rejected
             </button>
           </div>
-          <div style={styles.list}>
-            {(yourCampaignsStatus === "pending"
-                ? pendingCampaigns
-                : yourCampaignsStatus === "approved"
-                  ? approvedCampaigns
-                  : rejectedCampaigns
-            ).map(c => (
-              <CampaignCard
-                key={c.id}
-                campaign={c}
-                editable={yourCampaignsStatus === "pending"} // pass editable flag
-              />
-            ))}
-          </div>
+
+          {yourCampaignsStatus === "pending" && editingCampaign ? (
+            <CreateCampaignView
+              campaign={editingCampaign}
+              userId={user.uid}
+              onBack={() => setEditingCampaign(null)}
+              onSave={() => {
+                setEditingCampaign(null);
+                loadCampaigns();
+              }}
+            />
+          ) : (
+            <div style={styles.list}>
+              {(yourCampaignsStatus === "pending"
+                  ? pendingCampaigns
+                  : yourCampaignsStatus === "approved"
+                    ? approvedCampaigns
+                    : rejectedCampaigns
+              ).map(c => (
+                <CampaignCard
+                  key={c.id}
+                  campaign={c}
+                  editable={yourCampaignsStatus === "pending"}
+                  onEdit={setEditingCampaign}
+                />
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>
