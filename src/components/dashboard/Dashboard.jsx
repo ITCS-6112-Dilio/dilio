@@ -363,8 +363,7 @@ const Dashboard = () => {
   const styles = {
     container: {
       width: "100%",
-      height: "600px",
-      paddingBottom: "100px",
+      height: "520px",       
       background: "#ffffff",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       display: "flex",
@@ -388,7 +387,7 @@ const Dashboard = () => {
     },
     content: {
       padding: "20px",
-      paddingBottom: "20px",
+      paddingBottom: "100px",  
       flex: 1,
       overflowY: "auto",
       overflowX: "hidden",
