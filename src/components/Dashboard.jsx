@@ -20,6 +20,11 @@ import {
   deleteDonation,
   updateDonation,
 } from "../services/donationService";
+import {
+  checkAndAwardBadges,
+  getUserBadges,
+  BADGE_LABELS,
+} from "../services/userService";
 import { useUser } from "../context/UserContext";
 
 const Dashboard = () => {
@@ -30,6 +35,8 @@ const Dashboard = () => {
   const [stats, setStats] = useState({ totalDonated: 0, points: 0, streak: 0 });
   const [loading, setLoading] = useState(true);
   const [pendingPurchase, setPendingPurchase] = useState(null);
+  const [badges, setBadges] = useState([]);
+  const [recentBadges, setRecentBadges] = useState([]);
 
   // Safe wrapper for chrome APIs
   const safeChrome = {
@@ -54,9 +61,10 @@ const Dashboard = () => {
 
   // Initial load of donations + check for any existing pending purchase
   useEffect(() => {
+    if (userLoading || !user) return;
     loadData();
     checkPendingPurchase();
-  }, []);
+  }, [userLoading, user]);
 
   const checkPendingPurchase = () => {
     safeChrome.get(["pendingPurchase"], (result) => {
@@ -68,13 +76,18 @@ const Dashboard = () => {
   };
 
   const loadData = async () => {
+    if (!user) return;
+
     try {
       console.log("Dilio: current user uid:", user.uid);
       const userDonations = await getDonations(user.uid);
       console.log("Dilio: donations loaded in Dashboard:", userDonations);
 
+      const userBadges = await getUserBadges(user.uid);
+
       setDonations(userDonations);
       setStats(calculateStats(userDonations));
+      setBadges(userBadges);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -131,14 +144,36 @@ const Dashboard = () => {
     try {
       const id = await saveDonation(donation);
 
-      // Instant UI + stats update
       setDonations(prev => {
         const updated = [{ id, ...donation }, ...prev];
-        setStats(calculateStats(updated));
+        const newStats = calculateStats(updated);
+        setStats(newStats);
+
+        // 🔥 Check for new badges after this real round-up
+        checkAndAwardBadges(user.uid, updated, newStats)
+          .then(async (newBadgeTypes) => {
+            if (newBadgeTypes.length > 0) {
+              const names = newBadgeTypes
+                .map(type => BADGE_LABELS[type] || type)
+                .join(", ");
+
+              // Toast-style alert for now
+              alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}`);
+
+              // Refresh badges for UI
+              const freshBadges = await getUserBadges(user.uid);
+              setBadges(freshBadges);
+
+              // Show just-earned badges in the dashboard banner
+              setRecentBadges(newBadgeTypes);
+            }
+          })
+          .catch(console.error);
+
         return updated;
       });
 
-      // Clear both pendingPurchase and approval flag
+      // Clear storage + UI
       safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved"]);
       safeChrome.clearBadge();
       setPendingPurchase(null);
@@ -226,16 +261,38 @@ const Dashboard = () => {
 
       setDonations(prev => {
         const updated = [{ id, ...donation }, ...prev];
-        setStats(calculateStats(updated));
+        const newStats = calculateStats(updated);
+        setStats(newStats);
+
+        // Check for new badges after this donation
+        checkAndAwardBadges(user.uid, updated, newStats)
+          .then(async (newBadgeTypes) => {
+            if (newBadgeTypes.length > 0) {
+              // 1) Notification (before they just see it sitting in the UI)
+              const names = newBadgeTypes
+                .map(type => BADGE_LABELS[type] || type)
+                .join(", ");
+
+              alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}`);
+
+              // 2) Refresh full badge list for display
+              const freshBadges = await getUserBadges(user.uid);
+              setBadges(freshBadges);
+
+              // 3) Save which ones were just earned (optional banner in UI)
+              setRecentBadges(newBadgeTypes);
+            }
+          })
+          .catch(console.error);
+
         return updated;
       });
 
-      alert(
-        `Donation Successful!\n` +
-        `Round-Up: $${roundUpAmount.toFixed(2)}\n` +
-        `Extra Donation: $${extraDonation.toFixed(2)}\n` +
-        `Total Donated: $${finalAmount.toFixed(2)}`
-      );
+      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved"]);
+      safeChrome.clearBadge();
+      setPendingPurchase(null);
+
+      alert("Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded!");
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
@@ -440,6 +497,31 @@ const Dashboard = () => {
       textDecoration: "underline",
       cursor: "pointer",
       textAlign: "center",
+    },
+    badgeToast: {
+      marginBottom: "12px",
+      padding: "10px 12px",
+      borderRadius: "8px",
+      background: "#ecfdf5",
+      border: "1px solid #bbf7d0",
+      fontSize: "12px",
+      color: "#166534",
+    },
+
+    badgeRow: {
+      marginBottom: "16px",
+    },
+
+    badgeChip: {
+      display: "inline-block",
+      marginRight: "6px",
+      marginBottom: "4px",
+      padding: "4px 10px",
+      borderRadius: "999px",
+      background: "#e0f2fe",
+      color: "#0369a1",
+      fontSize: "11px",
+      fontWeight: 600,
     }
   };
 
@@ -520,6 +602,29 @@ const Dashboard = () => {
               <div style={styles.userEmail}>{user.email}</div>
             </div>
           </div>
+
+          {/* 🔔 Just-earned badge notification */}
+          {recentBadges.length > 0 && (
+            <div style={styles.badgeToast}>
+              <div style={{ fontWeight: 600 }}>🎉 New badge unlocked!</div>
+              <div>
+                {recentBadges
+                  .map(type => BADGE_LABELS[type] || type)
+                  .join(", ")}
+              </div>
+            </div>
+          )}
+
+          {/* All badges */}
+          {badges.length > 0 && (
+            <div style={styles.badgeRow}>
+              {badges.map(badge => (
+                <span key={badge.id} style={styles.badgeChip}>
+                  {BADGE_LABELS[badge.badgeType] || badge.badgeType}
+                </span>
+              ))}
+            </div>
+          )}
 
           <StatsCard stats={stats} />
 

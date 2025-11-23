@@ -1,10 +1,18 @@
 ﻿// src/components/dashboard/StatsCard.jsx
 const StatsCard = ({ stats }) => {
-  
+
   const safeTotal = Number.isFinite(stats.totalDonated)
     ? stats.totalDonated
     : 0;
-    
+
+  const safePoints = Number.isFinite(stats.points)
+    ? stats.points
+    : 0;
+
+  const safeStreak = Number.isFinite(stats.streak)
+    ? stats.streak
+    : 0;
+
   const styles = {
     grid: {
       display: "grid",
@@ -38,15 +46,15 @@ const StatsCard = ({ stats }) => {
     <div style={styles.grid}>
       <div style={styles.card}>
         <span style={styles.label}>Total Donated</span>
-        <span style={styles.value}>${stats.totalDonated.toFixed(2)}</span>
+        <span style={styles.value}>${safeTotal.toFixed(2)}</span>
       </div>
       <div style={styles.card}>
         <span style={styles.label}>Points</span>
-        <span style={styles.value}>{stats.points}</span>
+        <span style={styles.value}>{safePoints}</span>
       </div>
       <div style={styles.card}>
         <span style={styles.label}>Streak</span>
-        <span style={styles.value}>{stats.streak} 🔥</span>
+        <span style={styles.value}>{safeStreak} 🔥</span>
       </div>
     </div>
   );

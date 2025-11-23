@@ -160,3 +160,64 @@ export const getWeeklyReport = async () => {
     return [];
   }
 };
+
+// BADGE RULES
+export const BADGE_TYPES = {
+  FIRST_DONATION: "first_donation",
+  FIVE_DONATIONS: "five_donations",
+  BIG_50: "big_50",
+  STREAK_3: "streak_3",
+  STREAK_7: "streak_7",
+};
+
+export const BADGE_LABELS = {
+  [BADGE_TYPES.FIRST_DONATION]: "First Donation",
+  [BADGE_TYPES.FIVE_DONATIONS]: "5 Donations",
+  [BADGE_TYPES.BIG_50]: "$50 Donated",
+  [BADGE_TYPES.STREAK_3]: "3-Day Streak",
+  [BADGE_TYPES.STREAK_7]: "7-Day Streak",
+};
+
+export const checkAndAwardBadges = async (userId, donations, stats) => {
+  try {
+    const existingBadges = await getUserBadges(userId);
+    const existingTypes = new Set(existingBadges.map(b => b.badgeType));
+
+    const newBadges = [];
+
+    // 1) First donation
+    if (donations.length >= 1 && !existingTypes.has(BADGE_TYPES.FIRST_DONATION)) {
+      newBadges.push(BADGE_TYPES.FIRST_DONATION);
+    }
+
+    // 2) 5 donations
+    if (donations.length >= 5 && !existingTypes.has(BADGE_TYPES.FIVE_DONATIONS)) {
+      newBadges.push(BADGE_TYPES.FIVE_DONATIONS);
+    }
+
+    // 3) Total donated >= $50
+    if (stats.totalDonated >= 50 && !existingTypes.has(BADGE_TYPES.BIG_50)) {
+      newBadges.push(BADGE_TYPES.BIG_50);
+    }
+
+    // 4) Streak >= 3
+    if (stats.streak >= 3 && !existingTypes.has(BADGE_TYPES.STREAK_3)) {
+      newBadges.push(BADGE_TYPES.STREAK_3);
+    }
+
+    // 5) Streak >= 7
+    if (stats.streak >= 7 && !existingTypes.has(BADGE_TYPES.STREAK_7)) {
+      newBadges.push(BADGE_TYPES.STREAK_7);
+    }
+
+    // Award any new badges
+    for (const badgeType of newBadges) {
+      await awardBadge(userId, badgeType);
+    }
+
+    return newBadges; // <- Dashboard will use this to show the notification
+  } catch (error) {
+    console.error("Error checking/awarding badges:", error);
+    return [];
+  }
+};
