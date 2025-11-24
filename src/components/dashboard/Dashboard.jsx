@@ -1,6 +1,6 @@
 ﻿/* global chrome */
 // src/components/dashboard/Dashboard.jsx
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
 import { auth } from "../../services/firebase";
 import { signOut } from "firebase/auth";
 import { useNavigate } from "react-router-dom";
@@ -14,34 +14,31 @@ import ProfileView from "../profile/ProfileView";
 import CreateCampaignView from "../campaigns/CreateCampaignView";
 import AdminView from "../admin/AdminView";
 import {
-  getDonations,
-  saveDonation,
   calculateStats,
   deleteDonation,
+  getDonations,
+  saveDonation,
   updateDonation,
 } from "../../services/donationService";
-import {
-  checkAndAwardBadges,
-  getUserBadges,
-  BADGE_LABELS,
-} from "../../services/userService";
-import { getCurrentVotingSession } from "../../services/votingService";
+import { BADGE_LABELS, checkAndAwardBadges, getUserBadges } from "../../services/userService";
 import { getAllCampaigns } from "../../services/campaignService";
 import { useUser } from "../../context/UserContext";
+import { fetchNotifications } from "../../services/notificationService";
+import NotificationsView from "../notification/NotificationsView";
 
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: userLoading } = useUser();
-  const [currentView, setCurrentView] = useState("dashboard");
-  const [donations, setDonations] = useState([]);
-  const [stats, setStats] = useState({ totalDonated: 0, points: 0, streak: 0 });
-  const [loading, setLoading] = useState(true);
-  const [pendingPurchase, setPendingPurchase] = useState(null);
-  const [badges, setBadges] = useState([]);
-  const [recentBadges, setRecentBadges] = useState([]);
-  const [votingCampaigns, setVotingCampaigns] = useState([]);
-  const [allCampaigns, setAllCampaigns] = useState([]);
-  const [showCampaignSelector, setShowCampaignSelector] = useState(false);
+  const [ currentView, setCurrentView ] = useState("dashboard");
+  const [ donations, setDonations ] = useState([]);
+  const [ stats, setStats ] = useState({ totalDonated: 0, points: 0, streak: 0 });
+  const [ loading, setLoading ] = useState(true);
+  const [ pendingPurchase, setPendingPurchase ] = useState(null);
+  const [ badges, setBadges ] = useState([]);
+  const [ recentBadges, setRecentBadges ] = useState([]);
+  const [ allCampaigns, setAllCampaigns ] = useState([]);
+  const [ showCampaignSelector, setShowCampaignSelector ] = useState(false);
+  const [ notifications, setNotifications ] = useState([]);
 
   const safeChrome = {
     get: (keys, callback) => {
@@ -73,7 +70,8 @@ const Dashboard = () => {
     loadData();
     loadAllCampaigns();
     checkPendingPurchase();
-  }, [userLoading, user]);
+    fetchNotifications(user.uid).then(setNotifications);
+  }, [ userLoading, user ]);
 
   const loadAllCampaigns = async () => {
     try {
@@ -85,14 +83,12 @@ const Dashboard = () => {
   };
 
   const checkPendingPurchase = () => {
-    safeChrome.get(["pendingPurchase", "selectedCampaign"], (result) => {
+    safeChrome.get([ "pendingPurchase", "selectedCampaign" ], (result) => {
       if (result.pendingPurchase) {
-        console.log("Dilio: pendingPurchase loaded:", result.pendingPurchase);
         const selectedCampaign = result.selectedCampaign || "general";
-        
         setPendingPurchase({
           ...result.pendingPurchase,
-          selectedCampaign: selectedCampaign
+          selectedCampaign: selectedCampaign,
         });
 
         // If user selected "choose", show campaign selector
@@ -129,11 +125,11 @@ const Dashboard = () => {
       if (changes.pendingPurchase?.newValue || changes.selectedCampaign?.newValue) {
         const purchase = changes.pendingPurchase?.newValue;
         const campaign = changes.selectedCampaign?.newValue || "general";
-        
+
         if (purchase) {
           setPendingPurchase({
             ...purchase,
-            selectedCampaign: campaign
+            selectedCampaign: campaign,
           });
 
           if (campaign === "choose") {
@@ -150,7 +146,7 @@ const Dashboard = () => {
   const handleSelectCampaign = (campaignId) => {
     setPendingPurchase(prev => ({
       ...prev,
-      selectedCampaign: campaignId
+      selectedCampaign: campaignId,
     }));
     setShowCampaignSelector(false);
   };
@@ -176,7 +172,7 @@ const Dashboard = () => {
     }
 
     const selectedCampaign = pendingPurchase.selectedCampaign || "general";
-    
+
     let campaignName = "General Pool";
     if (selectedCampaign !== "general") {
       const campaign = allCampaigns.find(c => c.id === selectedCampaign);
@@ -198,7 +194,7 @@ const Dashboard = () => {
       const id = await saveDonation(donation);
 
       setDonations(prev => {
-        const updated = [{ id, ...donation }, ...prev];
+        const updated = [ { id, ...donation }, ...prev ];
         const newStats = calculateStats(updated);
         setStats(newStats);
 
@@ -220,7 +216,7 @@ const Dashboard = () => {
         return updated;
       });
 
-      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
+      safeChrome.remove([ "pendingPurchase", "pendingPurchaseApproved", "selectedCampaign" ]);
       safeChrome.clearBadge();
       setPendingPurchase(null);
       setShowCampaignSelector(false);
@@ -242,7 +238,7 @@ const Dashboard = () => {
       return;
     }
 
-    safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
+    safeChrome.remove([ "pendingPurchase", "pendingPurchaseApproved", "selectedCampaign" ]);
     safeChrome.clearBadge();
     setPendingPurchase(null);
     setShowCampaignSelector(false);
@@ -264,13 +260,13 @@ const Dashboard = () => {
     if (roundUpAmount === 0) {
       alert(
         "This purchase does not generate a round-up amount.\n" +
-        "You can still add an additional donation in the next step."
+        "You can still add an additional donation in the next step.",
       );
     }
 
     const extraInput = prompt(
       `Round-up amount is ${roundUpAmount.toFixed(2)}.\n` +
-      "Enter any additional donation (optional, e.g., 1.00):"
+      "Enter any additional donation (optional, e.g., 1.00):",
     );
 
     let extraDonation = parseFloat(extraInput);
@@ -289,17 +285,11 @@ const Dashboard = () => {
       return;
     }
 
-    // Show campaign options
-    const choiceMap = {
-      "0": { id: "general", name: "General Pool" },
-      "1": { id: "choose", name: "Choose Campaign" }
-    };
-
     const choice = prompt(
       "Choose where to donate:\n" +
       "0. General Pool (Vote Later)\n" +
       "1. Choose a Campaign\n\n" +
-      "Enter number:"
+      "Enter number:",
     );
 
     if (choice === null) return;
@@ -316,7 +306,7 @@ const Dashboard = () => {
         selectedCampaign: "choose",
         roundUpAmount,
         extraDonation,
-        finalAmount
+        finalAmount,
       });
       setShowCampaignSelector(true);
       return;
@@ -343,7 +333,7 @@ const Dashboard = () => {
       const id = await saveDonation(donation);
 
       setDonations(prev => {
-        const updated = [{ id, ...donation }, ...prev];
+        const updated = [ { id, ...donation }, ...prev ];
         const newStats = calculateStats(updated);
         setStats(newStats);
 
@@ -406,7 +396,7 @@ const Dashboard = () => {
 
       setDonations(prev => {
         const updated = prev.map(d =>
-          d.id === donation.id ? { ...d, amount } : d
+          d.id === donation.id ? { ...d, amount } : d,
         );
         setStats(calculateStats(updated));
         return updated;
@@ -428,13 +418,13 @@ const Dashboard = () => {
   const styles = {
     container: {
       width: "100%",
-      height: "600px",
+      height: "520px",
       paddingBottom: "100px",
       background: "#ffffff",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       display: "flex",
       flexDirection: "column",
-      overflow: "hidden",
+      overflowY: "auto",
     },
     header: {
       padding: "16px 20px",
@@ -637,7 +627,25 @@ const Dashboard = () => {
       fontWeight: 600,
       color: "#475569",
       marginBottom: "8px",
-    }
+    },
+    notification: {
+      position: "absolute",
+      top: "-6px",
+      right: "-8px",
+      minWidth: "18px",
+      height: "18px",
+      lineHeight: "18px",
+      background: "#ef4444",
+      color: "white",
+      borderRadius: "50%",
+      padding: "0 5px",
+      fontSize: "12px",
+      fontWeight: 700,
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "center",
+      boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
+    },
   };
 
   const getInitials = (email) => {
@@ -664,14 +672,27 @@ const Dashboard = () => {
     <div style={styles.container}>
       <header style={styles.header}>
         <h1 style={styles.headerTitle}>💰 Dilio</h1>
-        <button
-          style={styles.logoutBtn}
-          onClick={handleLogout}
-          onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.35)"}
-          onMouseLeave={e => e.target.style.background = "rgba(255,255,255,0.2)"}
-        >
-          Logout
-        </button>
+        <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
+          <div
+            style={{ position: "relative", cursor: "pointer" }}
+            onClick={() => setCurrentView("notifications")}
+          >
+            <span role="img" aria-label="notifications" style={{ fontSize: "24px" }}>🔔</span>
+            {notifications.filter(n => !n.read).length > 0 && (
+              <span style={styles.notification}>
+          {notifications.filter(n => !n.read).length > 9 ? "9+" : notifications.filter(n => !n.read).length}
+        </span>
+            )}
+          </div>
+          <button
+            style={styles.logoutBtn}
+            onClick={handleLogout}
+            onMouseEnter={e => e.target.style.background = "rgba(255,255,255,0.35)"}
+            onMouseLeave={e => e.target.style.background = "rgba(255,255,255,0.2)"}
+          >
+            Logout
+          </button>
+        </div>
       </header>
 
       {currentView === "dashboard" && (
@@ -679,17 +700,14 @@ const Dashboard = () => {
           {pendingPurchase && pendingPurchase.amount && (
             <div style={styles.purchaseAlert}>
               <div style={styles.purchaseTitle}>🛒 Purchase Detected!</div>
-
               <div style={styles.purchaseAmount}>
                 ${pendingPurchase.amount.toFixed(2)}
               </div>
-
               {!showCampaignSelector ? (
                 <>
                   <span style={styles.campaignBadge}>
                     → {getCampaignName(pendingPurchase.selectedCampaign)}
                   </span>
-
                   <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b" }}>
                     Round up to{" "}
                     <strong>
@@ -701,16 +719,14 @@ const Dashboard = () => {
                     </strong>
                     .
                   </p>
-
                   {pendingPurchase.selectedCampaign === "choose" && (
-                    <button 
-                      style={{...styles.confirmBtn, marginBottom: "8px"}}
+                    <button
+                      style={{ ...styles.confirmBtn, marginBottom: "8px" }}
                       onClick={() => setShowCampaignSelector(true)}
                     >
                       Select Campaign
                     </button>
                   )}
-
                   {pendingPurchase.selectedCampaign !== "choose" && (
                     <div style={styles.buttonGroup}>
                       <button style={styles.confirmBtn} onClick={handleConfirmDonation}>
@@ -728,7 +744,7 @@ const Dashboard = () => {
                     Choose which campaign to support:
                   </div>
                   <div style={styles.campaignSelector}>
-                    <div 
+                    <div
                       style={styles.campaignOption}
                       onClick={() => handleSelectCampaign("general")}
                       onMouseEnter={(e) => {
@@ -742,9 +758,9 @@ const Dashboard = () => {
                       <div style={styles.campaignDesc}>Vote later for distribution</div>
                     </div>
                     {allCampaigns.map((campaign, idx) => (
-                      <div 
+                      <div
                         key={campaign.id}
-                        style={idx === allCampaigns.length - 1 ? {...styles.campaignOption, ...styles.campaignOptionLast} : styles.campaignOption}
+                        style={idx === allCampaigns.length - 1 ? { ...styles.campaignOption, ...styles.campaignOptionLast } : styles.campaignOption}
                         onClick={() => handleSelectCampaign(campaign.id)}
                         onMouseEnter={(e) => {
                           e.currentTarget.style.background = "#eff6ff";
@@ -758,21 +774,19 @@ const Dashboard = () => {
                       </div>
                     ))}
                   </div>
-                  <button 
-                    style={{...styles.declineBtn, marginTop: "12px"}} 
+                  <button
+                    style={{ ...styles.declineBtn, marginTop: "12px" }}
                     onClick={() => setShowCampaignSelector(false)}
                   >
                     Back
                   </button>
                 </>
               )}
-
               <button style={styles.cancelBtn} onClick={handleCancelDonation}>
                 Cancel this Donation
               </button>
             </div>
           )}
-
           <div style={styles.userInfo}>
             <div style={styles.avatarCircle}>{getInitials(user.email)}</div>
             <div style={{ flex: 1 }}>
@@ -783,7 +797,6 @@ const Dashboard = () => {
               <div style={styles.userEmail}>{user.email}</div>
             </div>
           </div>
-
           {recentBadges.length > 0 && (
             <div style={styles.badgeToast}>
               <div style={{ fontWeight: 600 }}>🎉 New badge unlocked!</div>
@@ -794,7 +807,6 @@ const Dashboard = () => {
               </div>
             </div>
           )}
-
           {badges.length > 0 && (
             <div style={styles.badgeRow}>
               {badges.map(badge => (
@@ -804,9 +816,7 @@ const Dashboard = () => {
               ))}
             </div>
           )}
-
-          <StatsCard stats={stats} />
-
+          <StatsCard stats={stats}/>
           <QuickActions
             onMockPurchase={handleMockPurchase}
             onViewCampaigns={() => setCurrentView("campaigns")}
@@ -814,7 +824,6 @@ const Dashboard = () => {
             onCreateCampaign={user.role === "organizer" || user.role === "admin" ? () => setCurrentView("create-campaign") : null}
             onAdminPanel={user.role === "admin" ? () => setCurrentView("admin") : null}
           />
-
           <RecentActivity
             donations={donations}
             onDelete={handleDeleteDonation}
@@ -822,14 +831,33 @@ const Dashboard = () => {
           />
         </div>
       )}
-
-      {currentView === "campaigns" && <CampaignsView />}
-      {currentView === "voting" && <VotingView />}
-      {currentView === "create-campaign" && <CreateCampaignView onBack={() => setCurrentView("dashboard")} userId={user.uid} />}
-      {currentView === "admin" && <AdminView onBack={() => setCurrentView("dashboard")} />}
-      {currentView === "profile" && <ProfileView onLogout={handleLogout} />}
-
-      <BottomNav currentView={currentView} onNavigate={setCurrentView} />
+      {currentView === "campaigns" && <CampaignsView/>}
+      {currentView === "voting" && <VotingView/>}
+      {
+        currentView === "create-campaign" &&
+        <CreateCampaignView
+          userId={user.uid}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      }
+      {
+        currentView === "admin" &&
+        <AdminView onBack={() => setCurrentView("dashboard")}/>
+      }
+      {
+        currentView === "profile" &&
+        <ProfileView onLogout={handleLogout}/>
+      }
+      {
+        currentView === "notifications" &&
+        <NotificationsView
+          userId={user.uid}
+          notifications={notifications}
+          setNotifications={setNotifications}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      }
+      <BottomNav currentView={currentView} onNavigate={setCurrentView}/>
     </div>
   );
 };
