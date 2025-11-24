@@ -1,19 +1,10 @@
 ﻿// src/services/campaignService.js
-import { 
-  addDoc, 
-  collection, 
-  doc, 
-  getDocs, 
-  getFirestore, 
-  query, 
-  updateDoc, 
-  where 
-} from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, getFirestore, query, updateDoc, where } from "firebase/firestore";
 import app from "./firebase";
 
 const db = getFirestore(app);
 
-const VALID_STATUSES = ["approved", "pending", "rejected"];
+const VALID_STATUSES = [ "approved", "pending", "rejected" ];
 
 // CAMPAIGN MANAGEMENT
 export const createCampaign = async (campaign) => {
@@ -106,7 +97,7 @@ export const getCampaignsByOrganizer = async (organizerId) => {
   try {
     const q = query(
       collection(db, "campaigns"),
-      where("organizerId", "==", organizerId)
+      where("organizerId", "==", organizerId),
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map(doc => ({
@@ -151,8 +142,34 @@ export const getPendingCampaigns = async () => {
 
 export const approveCampaign = async (campaignId) => {
   await updateCampaign(campaignId, { status: "approved", updatedAt: new Date() });
+
+  const campaignDoc = await doc(db, "campaigns", campaignId);
+  const campaignSnap = await getDoc(campaignDoc);
+  const data = campaignSnap.data();
+  if (data) {
+    await addDoc(collection(db, "notifications"), {
+      userId: data.organizerId,
+      type: "campaign_approved",
+      message: `Your campaign "${data.name}" was approved!`,
+      timestamp: new Date(),
+      read: false,
+    });
+  }
 };
 
 export const rejectCampaign = async (campaignId) => {
   await updateCampaign(campaignId, { status: "rejected", updatedAt: new Date() });
+
+  const campaignDoc = await doc(db, "campaigns", campaignId);
+  const campaignSnap = await getDoc(campaignDoc);
+  const data = campaignSnap.data();
+  if (data) {
+    await addDoc(collection(db, "notifications"), {
+      userId: data.organizerId,
+      type: "campaign_rejected",
+      message: `Your campaign "${data.name}" was rejected.`,
+      timestamp: new Date(),
+      read: false,
+    });
+  }
 };
