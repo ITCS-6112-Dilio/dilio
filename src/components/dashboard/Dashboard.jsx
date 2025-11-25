@@ -158,12 +158,17 @@ const Dashboard = () => {
       return;
     }
 
-    const roundUpAmount = Math.ceil(purchaseAmount) - purchaseAmount;
-
-    if (roundUpAmount <= 0) {
-      alert("This purchase does not generate a round-up amount.");
-      handleDeclineDonation();
-      return;
+    // For manual donations, use the full amount; for purchases, calculate round-up
+    let donationAmount;
+    if (pendingPurchase.isManual) {
+      donationAmount = purchaseAmount;
+    } else {
+      donationAmount = Math.ceil(purchaseAmount) - purchaseAmount;
+      if (donationAmount <= 0) {
+        alert("This purchase does not generate a round-up amount.");
+        handleDeclineDonation();
+        return;
+      }
     }
 
     const selectedCampaign = pendingPurchase.selectedCampaign || "general";
@@ -175,15 +180,19 @@ const Dashboard = () => {
     }
 
     const donation = {
-      amount: roundUpAmount,
-      roundUpAmount,
-      purchaseAmount,
+      amount: donationAmount,
       campaign: campaignName,
       campaignId: selectedCampaign,
       timestamp: Date.now(),
       userId: user.uid,
-      source: pendingPurchase.url,
+      source: pendingPurchase.isManual ? "manual" : pendingPurchase.url,
     };
+    
+    // Add purchase-specific fields only for non-manual donations
+    if (!pendingPurchase.isManual) {
+      donation.roundUpAmount = donationAmount;
+      donation.purchaseAmount = purchaseAmount;
+    }
 
     try {
       const id = await saveDonation(donation);
@@ -214,7 +223,7 @@ const Dashboard = () => {
       setPendingPurchase(null);
       setShowCampaignSelector(false);
 
-      alert("Thank you! Donation of $" + roundUpAmount.toFixed(2) + " recorded for " + campaignName + "!");
+      alert("Thank you! Donation of $" + donationAmount.toFixed(2) + " recorded for " + campaignName + "!");
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
