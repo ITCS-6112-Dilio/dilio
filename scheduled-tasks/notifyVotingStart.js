@@ -1,6 +1,6 @@
+// scheduled-tasks/notifyVotingStart.js
 const { initializeApp, cert } = require("firebase-admin/app");
 const { getFirestore } = require("firebase-admin/firestore");
-
 const serviceAccount = require("../dilio-39ba5-firebase-adminsdk-fbsvc-bfea2c47b1.json");
 
 initializeApp({
@@ -10,14 +10,26 @@ initializeApp({
 const db = getFirestore();
 
 async function runTask() {
-  await db.collection("notifications").add({
-    userId: "all",
-    type: "voting_started",
-    message: "A new voting session has started!",
-    timestamp: new Date(),
-    read: false,
+  // Get all users
+  const usersSnapshot = await db.collection("users").get();
+
+  // Create a notification for each user
+  const batch = db.batch();
+  const notificationsRef = db.collection("notifications");
+
+  usersSnapshot.forEach((userDoc) => {
+    const newNotificationRef = notificationsRef.doc();
+    batch.set(newNotificationRef, {
+      userId: userDoc.id,
+      type: "voting_started",
+      message: "A new voting session has started!",
+      timestamp: new Date(),
+      read: false,
+    });
   });
-  console.log("Voting session start notification written!");
+
+  await batch.commit();
+  console.log(`Voting session start notifications sent to ${usersSnapshot.size} users!`);
 }
 
 runTask().catch(console.error);

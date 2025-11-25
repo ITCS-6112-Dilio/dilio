@@ -1,26 +1,19 @@
-name: Notify Voting Session Start
-
+name: Notify Voting Session Started
 on:
   schedule:
-    - cron: '0 5 * * 0'  # Runs every Sunday at 12:00 AM EST (5:00 UTC)
+    - cron: '25 0 * * *'  # Runs every day at 7:25 PM EST (12:25 AM UTC)
   workflow_dispatch:
-
 jobs:
   notify-voting-start:
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
-
       - uses: actions/setup-node@v3
         with:
-          node-version: 18
-
+          node-version: 20  # Changed from 18 to 20 to avoid warnings
       - name: Install dependencies
         run: npm install firebase-admin
-
       - name: Create service account file
-        run: echo "${{ secrets.FIREBASE_KEY }}" > dilio-39ba5-firebase-adminsdk-fbsvc-bfea2c47b1.json
-
+        run: echo '${{ secrets.FIREBASE_KEY }}' > dilio-39ba5-firebase-adminsdk-fbsvc-bfea2c47b1.json
       - name: Run notifyVotingStart.js
         run: node scheduled-tasks/notifyVotingStart.js
