@@ -88,7 +88,6 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
       borderRadius: 4,
       border: "1px solid #ccc",
       fontSize: "14px",
-      fontFamily: "inherit",
       boxSizing: "border-box",
       resize: "vertical",
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
@@ -100,6 +99,7 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
       border: "1px solid #ccc",
       fontSize: "14px",
       boxSizing: "border-box",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     backBtn: {
       marginTop: "10px",

@@ -1,7 +1,6 @@
 ﻿// src/components/dashboard/QuickActions.jsx
-import Button from "../Button";
-
-const QuickActions = ({ onManualDonation, onCreateCampaign }) => {  const styles = {
+const QuickActions = ({ onManualDonation, onCreateCampaign }) => {
+  const styles = {
     section: {
       marginBottom: "20px",
     },
@@ -27,7 +26,7 @@ const QuickActions = ({ onManualDonation, onCreateCampaign }) => {  const styles
       textAlign: "center",
       transition: "all 0.2s",
       boxShadow: "0 2px 4px rgba(0,0,0,0.08)",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif"
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     primary: {
       background: "linear-gradient(135deg, #2563eb, #3b82f6)",
@@ -42,14 +41,27 @@ const QuickActions = ({ onManualDonation, onCreateCampaign }) => {  const styles
   return (
     <div style={styles.section}>
       <h3 style={styles.title}>Quick Actions</h3>
-      <Button onClick={onManualDonation} style={{ marginBottom: "10px" }}>
-        💰 Manual Donation
-      </Button>
-      {onCreateCampaign && (
-        <Button variant="success" onClick={onCreateCampaign} style={{ marginBottom: "10px" }}>
-          ➕ Create Campaign
-        </Button>
-      )}
+      <div style={styles.grid}>
+        <button 
+          style={{ ...styles.button, ...styles.primary }}
+          onClick={onManualDonation}
+          onMouseEnter={(e) => e.target.style.transform = "translateY(-2px)"}
+          onMouseLeave={(e) => e.target.style.transform = "translateY(0)"}
+        >
+          💰 Manual Donation
+        </button>
+        
+        {onCreateCampaign && (
+          <button 
+            style={{ ...styles.button, ...styles.success }}
+            onClick={onCreateCampaign}
+            onMouseEnter={(e) => e.target.style.transform = "translateY(-2px)"}
+            onMouseLeave={(e) => e.target.style.transform = "translateY(0)"}
+          >
+            ➕ Create Campaign
+          </button>
+        )}
+      </div>
     </div>
   );
 };
