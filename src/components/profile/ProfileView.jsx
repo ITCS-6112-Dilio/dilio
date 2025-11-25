@@ -293,10 +293,6 @@ const ProfileView = ({ onLogout }) => {
               Make Me Organizer
             </button>
           </div>
-
-          <Button variant="danger" onClick={onLogout} style={{ marginTop: "20px" }}>
-            Logout
-          </Button>
         </>
       )}
 
