@@ -13,6 +13,7 @@ import {
   orderBy,
   limit,
   setDoc,
+  deleteDoc,
 } from "firebase/firestore";
 import { db } from "./firebase";
 
@@ -35,9 +36,9 @@ export const getCurrentVotingSession = async () => {
 
     // Create new session with 5 random campaigns
     const campaigns = await getRandomCampaigns(5);
-    
+
     const { startDate, endDate } = getCurrentWeekRange();
-    
+
     const newSession = {
       weekId,
       startDate: startDate.getTime(),
@@ -70,14 +71,14 @@ export const getCurrentVotingSession = async () => {
 export const getPastVotingSessions = async (count = 4) => {
   try {
     const currentWeekId = getWeekIdentifier();
-    
+
     const sessionsQuery = query(
       collection(db, "votingSessions"),
       orderBy("createdAt", "desc"),
       limit(count + 1)
     );
     const snapshot = await getDocs(sessionsQuery);
-    
+
     return snapshot.docs
       .map(doc => ({ id: doc.id, ...doc.data() }))
       .filter(session => session.id !== currentWeekId)
@@ -108,7 +109,7 @@ const getRandomCampaigns = async (count = 5) => {
 
     // Get recently used campaigns from last 3 weeks
     const recentlyUsed = await getRecentlyUsedCampaigns(3);
-    
+
     // Filter out recently used campaigns if we have enough options
     let availableCampaigns = allCampaigns.filter(
       c => !recentlyUsed.includes(c.id)
@@ -141,7 +142,7 @@ const getRecentlyUsedCampaigns = async (weeksBack = 3) => {
       limit(weeksBack)
     );
     const snapshot = await getDocs(sessionsQuery);
-    
+
     const usedIds = new Set();
     snapshot.docs.forEach(doc => {
       const campaigns = doc.data().campaigns || [];
@@ -156,7 +157,7 @@ const getRecentlyUsedCampaigns = async (weeksBack = 3) => {
 };
 
 /**
- * Submit a vote for a campaign
+ * Submit or update a vote for a campaign
  * @param {string} userId - User ID
  * @param {string} campaignId - Campaign ID to vote for
  * @param {string} sessionId - Voting session ID
@@ -171,11 +172,25 @@ export const submitVote = async (userId, campaignId, sessionId) => {
     );
     const existingVotes = await getDocs(votesQuery);
 
+    let oldCampaignId = null;
+    let voteDocId = null;
+
+    // If user has voted, get the old campaign ID and vote doc ID
     if (!existingVotes.empty) {
-      throw new Error("You have already voted in this session");
+      const oldVote = existingVotes.docs[0];
+      oldCampaignId = oldVote.data().campaignId;
+      voteDocId = oldVote.id;
+
+      // If voting for the same campaign, no need to update
+      if (oldCampaignId === campaignId) {
+        return true;
+      }
+
+      // Delete the old vote document
+      await deleteDoc(doc(db, "votes", voteDocId));
     }
 
-    // Add vote
+    // Add new vote
     await addDoc(collection(db, "votes"), {
       userId,
       campaignId,
@@ -183,26 +198,68 @@ export const submitVote = async (userId, campaignId, sessionId) => {
       timestamp: serverTimestamp(),
     });
 
-    // Update campaign vote count in session
+    // Update campaign vote counts in session
     const sessionRef = doc(db, "votingSessions", sessionId);
     const sessionSnap = await getDoc(sessionRef);
-    
+
     if (sessionSnap.exists()) {
       const sessionData = sessionSnap.data();
-      const updatedCampaigns = sessionData.campaigns.map(c => 
-        c.id === campaignId ? { ...c, votes: (c.votes || 0) + 1 } : c
-      );
-
-      await updateDoc(sessionRef, {
-        campaigns: updatedCampaigns,
-        totalVotes: increment(1),
+      const updatedCampaigns = sessionData.campaigns.map(c => {
+        if (c.id === campaignId) {
+          // Increment vote for new campaign
+          return { ...c, votes: (c.votes || 0) + 1 };
+        } else if (oldCampaignId && c.id === oldCampaignId) {
+          // Decrement vote for old campaign
+          return { ...c, votes: Math.max(0, (c.votes || 0) - 1) };
+        }
+        return c;
       });
+
+      // If this is a new vote (not an update), increment total votes
+      const updates = {
+        campaigns: updatedCampaigns,
+      };
+
+      if (!oldCampaignId) {
+        updates.totalVotes = increment(1);
+      }
+
+      await updateDoc(sessionRef, updates);
     }
 
     return true;
   } catch (error) {
     console.error("Error submitting vote:", error);
     throw error;
+  }
+};
+
+/**
+ * Get user's vote for a specific session
+ * @param {string} userId - User ID
+ * @param {string} sessionId - Session ID
+ * @returns {Object|null} Vote object with campaignId, or null if not voted
+ */
+export const getUserVote = async (userId, sessionId) => {
+  try {
+    const votesQuery = query(
+      collection(db, "votes"),
+      where("userId", "==", userId),
+      where("sessionId", "==", sessionId)
+    );
+    const snapshot = await getDocs(votesQuery);
+
+    if (snapshot.empty) {
+      return null;
+    }
+
+    return {
+      id: snapshot.docs[0].id,
+      ...snapshot.docs[0].data(),
+    };
+  } catch (error) {
+    console.error("Error getting user vote:", error);
+    return null;
   }
 };
 
@@ -214,13 +271,8 @@ export const submitVote = async (userId, campaignId, sessionId) => {
  */
 export const hasUserVoted = async (userId, sessionId) => {
   try {
-    const votesQuery = query(
-      collection(db, "votes"),
-      where("userId", "==", userId),
-      where("sessionId", "==", sessionId)
-    );
-    const snapshot = await getDocs(votesQuery);
-    return !snapshot.empty;
+    const vote = await getUserVote(userId, sessionId);
+    return vote !== null;
   } catch (error) {
     console.error("Error checking vote status:", error);
     return false;
@@ -248,16 +300,16 @@ const getWeekIdentifier = () => {
 const getCurrentWeekRange = () => {
   const now = new Date();
   const dayOfWeek = now.getDay(); // 0 = Sunday, 6 = Saturday
-  
+
   // Get Sunday of current week
   const startDate = new Date(now);
   startDate.setDate(now.getDate() - dayOfWeek);
   startDate.setHours(0, 0, 0, 0);
-  
+
   // Get Saturday of current week
   const endDate = new Date(startDate);
   endDate.setDate(startDate.getDate() + 6);
   endDate.setHours(23, 59, 59, 999);
-  
+
   return { startDate, endDate };
 };
