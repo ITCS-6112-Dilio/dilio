@@ -1,7 +1,7 @@
 name: Notify Voting Session Started
 on:
   schedule:
-    - cron: '*/17 * * * *'  # Runs every 5 minutes
+    - cron: '3 5 * * 0'   # Sunday 00:03 AM EST
   workflow_dispatch:
 jobs:
   notify-voting-start:
