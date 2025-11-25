@@ -25,6 +25,7 @@ import { getAllCampaigns } from "../../services/campaignService";
 import { useUser } from "../../context/UserContext";
 import { fetchNotifications } from "../../services/notificationService";
 import NotificationsView from "../notification/NotificationsView";
+import { getCurrentVotingSession, getVotingSessionById } from "../../services/votingService";
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -38,6 +39,8 @@ const Dashboard = () => {
   const [ allCampaigns, setAllCampaigns ] = useState([]);
   const [ showCampaignSelector, setShowCampaignSelector ] = useState(false);
   const [ notifications, setNotifications ] = useState([]);
+  const [ currentVotingSession, setCurrentVotingSession ] = useState(null);
+  const [ sessionsById, setSessionsById ] = useState({});
 
   const safeChrome = {
     get: (keys, callback) => {
@@ -70,6 +73,17 @@ const Dashboard = () => {
     loadAllCampaigns();
     checkPendingPurchase();
     fetchNotifications(user.uid).then(setNotifications);
+
+    // Load current voting session for tagging new general-pool donations
+    (async () => {
+      try {
+        const session = await getCurrentVotingSession();
+        setCurrentVotingSession(session);
+      } catch (err) {
+        console.error("Error loading current voting session:", err);
+        setCurrentVotingSession(null);
+      }
+    })();
   }, [ userLoading, user ]);
 
   const loadAllCampaigns = async () => {
@@ -104,6 +118,39 @@ const Dashboard = () => {
       const userDonations = await getDonations(user.uid);
       setDonations(userDonations);
       setStats(calculateStats(userDonations));
+
+      // Load sessions for general-pool donations
+      const sessionIds = Array.from(
+        new Set(
+          userDonations
+            .filter((d) => d.campaignId === "general" && d.votingSessionId)
+            .map((d) => d.votingSessionId),
+        ),
+      );
+
+      if (sessionIds.length > 0) {
+        const sessions = await Promise.all(
+          sessionIds.map(async (id) => {
+            try {
+              const s = await getVotingSessionById(id);
+              return s ? [ id, s ] : null;
+            } catch {
+              return null;
+            }
+          }),
+        );
+
+        const map = {};
+        sessions.forEach((entry) => {
+          if (entry) {
+            const [ id, session ] = entry;
+            map[id] = session;
+          }
+        });
+        setSessionsById(map);
+      } else {
+        setSessionsById({});
+      }
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -116,10 +163,10 @@ const Dashboard = () => {
       // Scroll to top when campaign selector is shown
       const container = document.querySelector('[style*="overflowY: auto"]');
       if (container) {
-        container.scrollTo({ top: 0, behavior: 'smooth' });
+        container.scrollTo({ top: 0, behavior: "smooth" });
       }
     }
-  }, [showCampaignSelector]);
+  }, [ showCampaignSelector ]);
 
   useEffect(() => {
     if (!chrome?.storage?.onChanged) return;
@@ -149,7 +196,7 @@ const Dashboard = () => {
   }, []);
 
   const handleSelectCampaign = (campaignId) => {
-    setPendingPurchase(prev => ({
+    setPendingPurchase((prev) => ({
       ...prev,
       selectedCampaign: campaignId,
     }));
@@ -185,7 +232,7 @@ const Dashboard = () => {
 
     let campaignName = "General Pool";
     if (selectedCampaign !== "general") {
-      const campaign = allCampaigns.find(c => c.id === selectedCampaign);
+      const campaign = allCampaigns.find((c) => c.id === selectedCampaign);
       campaignName = campaign ? campaign.name : "Unknown Campaign";
     }
 
@@ -197,7 +244,12 @@ const Dashboard = () => {
       userId: user.uid,
       source: pendingPurchase.isManual ? "manual" : pendingPurchase.url,
     };
-    
+
+    // attach votingSessionId for general-pool donations
+    if (selectedCampaign === "general" && currentVotingSession?.id) {
+      donation.votingSessionId = currentVotingSession.id;
+    }
+
     // Add purchase-specific fields only for non-manual donations
     if (!pendingPurchase.isManual) {
       donation.roundUpAmount = donationAmount;
@@ -207,7 +259,7 @@ const Dashboard = () => {
     try {
       const id = await saveDonation(donation);
 
-      setDonations(prev => {
+      setDonations((prev) => {
         const updated = [ { id, ...donation }, ...prev ];
         const newStats = calculateStats(updated);
         setStats(newStats);
@@ -216,7 +268,7 @@ const Dashboard = () => {
           .then(async (newBadgeTypes) => {
             if (newBadgeTypes.length > 0) {
               const names = newBadgeTypes
-                .map(type => BADGE_LABELS[type] || type)
+                .map((type) => BADGE_LABELS[type] || type)
                 .join(", ");
               alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}\n\nView your badges in Profile → Badges tab!`);
 
@@ -273,7 +325,7 @@ const Dashboard = () => {
       "Choose where to donate:\n" +
       "0. General Pool (Vote Later)\n" +
       "1. Choose a Campaign\n\n" +
-      "Enter number:"
+      "Enter number:",
     );
 
     if (choice === null) return;
@@ -307,6 +359,10 @@ const Dashboard = () => {
       userId: user.uid,
       source: "manual",
     };
+
+    if (selectedCampaignId === "general" && currentVotingSession?.id) {
+      donation.votingSessionId = currentVotingSession.id;
+    }
 
     try {
       const id = await saveDonation(donation);
@@ -346,8 +402,8 @@ const Dashboard = () => {
     try {
       await deleteDonation(donationId);
 
-      setDonations(prev => {
-        const updated = prev.filter(d => d.id !== donationId);
+      setDonations((prev) => {
+        const updated = prev.filter((d) => d.id !== donationId);
         setStats(calculateStats(updated));
         return updated;
       });
@@ -371,8 +427,8 @@ const Dashboard = () => {
     try {
       await updateDonation(donation.id, { amount });
 
-      setDonations(prev => {
-        const updated = prev.map(d =>
+      setDonations((prev) => {
+        const updated = prev.map((d) =>
           d.id === donation.id ? { ...d, amount } : d,
         );
         setStats(calculateStats(updated));
@@ -633,14 +689,43 @@ const Dashboard = () => {
   const getCampaignName = (campaignId) => {
     if (campaignId === "general") return "General Pool";
     if (campaignId === "choose") return "Choose Campaign";
-    const campaign = allCampaigns.find(c => c.id === campaignId);
+    const campaign = allCampaigns.find((c) => c.id === campaignId);
     return campaign ? campaign.name : "Unknown Campaign";
   };
+
+  const donationsWithPermissions = donations.map((donation) => {
+    let canEdit = true;
+    let canDelete = true;
+
+    if (donation.campaignId === "general") {
+      const session = donation.votingSessionId
+        ? sessionsById[donation.votingSessionId]
+        : null;
+
+      if (!session || session.active === false) {
+        canEdit = false;
+        canDelete = false;
+      }
+    } else {
+      const campaign = allCampaigns.find((c) => c.id === donation.campaignId);
+      if (campaign && campaign.status === "completed") {
+        canEdit = false;
+        canDelete = false;
+      }
+    }
+
+    return { ...donation, canEdit, canDelete };
+  });
 
   if (loading || userLoading) {
     return (
       <div style={styles.container}>
-        <div style={{ padding: "40px", textAlign: "center", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>Loading...</div>
+        <div style={{
+          padding: "40px",
+          textAlign: "center",
+          fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+        }}>Loading...
+        </div>
       </div>
     );
   }
@@ -687,25 +772,31 @@ const Dashboard = () => {
                   <span style={styles.campaignBadge}>
                     → {getCampaignName(pendingPurchase.selectedCampaign)}
                   </span>
-                  <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+                  <p style={{
+                    fontSize: "14px",
+                    marginBottom: "12px",
+                    color: "#64748b",
+                    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+                  }}>
                     {pendingPurchase.isManual ? (
-                      <>Donate <strong style={{ color: "#2563eb" }}>${pendingPurchase.amount.toFixed(2)}</strong> to support a campus cause.</>
+                      <>Donate <strong style={{ color: "#2563eb" }}>${pendingPurchase.amount.toFixed(2)}</strong> to
+                        support a campus cause.</>
                     ) : (
                       <>
                         Round up to <strong>${Math.ceil(pendingPurchase.amount).toFixed(2)}</strong> and donate{" "}
-                        <strong style={{ color: "#2563eb" }}>${(Math.ceil(pendingPurchase.amount) - pendingPurchase.amount).toFixed(2)}</strong>.
+                        <strong
+                          style={{ color: "#2563eb" }}>${(Math.ceil(pendingPurchase.amount) - pendingPurchase.amount).toFixed(2)}</strong>.
                       </>
                     )}
                   </p>
-                  {pendingPurchase.selectedCampaign === "choose" && (
+                  {pendingPurchase.selectedCampaign === "choose" ? (
                     <button
                       style={{ ...styles.confirmBtn, marginBottom: "8px" }}
                       onClick={() => setShowCampaignSelector(true)}
                     >
                       Select Campaign
                     </button>
-                  )}
-                  {pendingPurchase.selectedCampaign !== "choose" && (
+                  ) : (
                     <>
                       <button
                         style={{ ...styles.confirmBtn, marginBottom: "8px", width: "100%" }}
@@ -733,19 +824,33 @@ const Dashboard = () => {
                     <div
                       style={styles.campaignOption}
                       onClick={() => handleSelectCampaign("general")}
-                      onMouseEnter={(e) => e.currentTarget.style.background = "#eff6ff"}
-                      onMouseLeave={(e) => e.currentTarget.style.background = "white"}
+                      onMouseEnter={(e) =>
+                        (e.currentTarget.style.background = "#eff6ff")
+                      }
+                      onMouseLeave={(e) =>
+                        (e.currentTarget.style.background = "white")
+                      }
                     >
                       <div style={styles.campaignTitle}>General Pool</div>
-                      <div style={styles.campaignDesc}>Vote later for distribution</div>
+                      <div style={styles.campaignDesc}>
+                        Vote later for distribution
+                      </div>
                     </div>
                     {allCampaigns.map((campaign, idx) => (
                       <div
                         key={campaign.id}
-                        style={idx === allCampaigns.length - 1 ? { ...styles.campaignOption, ...styles.campaignOptionLast } : styles.campaignOption}
+                        style={
+                          idx === allCampaigns.length - 1
+                            ? { ...styles.campaignOption, ...styles.campaignOptionLast }
+                            : styles.campaignOption
+                        }
                         onClick={() => handleSelectCampaign(campaign.id)}
-                        onMouseEnter={(e) => e.currentTarget.style.background = "#eff6ff"}
-                        onMouseLeave={(e) => e.currentTarget.style.background = "white"}
+                        onMouseEnter={(e) =>
+                          (e.currentTarget.style.background = "#eff6ff")
+                        }
+                        onMouseLeave={(e) =>
+                          (e.currentTarget.style.background = "white")
+                        }
                       >
                         <div style={styles.campaignTitle}>{campaign.name}</div>
                         <div style={styles.campaignDesc}>{campaign.description}</div>
@@ -753,11 +858,11 @@ const Dashboard = () => {
                     ))}
                   </div>
                   <button
-                    style={{ 
-                      ...styles.declineBtn, 
+                    style={{
+                      ...styles.declineBtn,
                       marginTop: "12px",
                       fontWeight: 600,
-                      fontSize: "14px"
+                      fontSize: "14px",
                     }}
                     onClick={() => setShowCampaignSelector(false)}
                   >
@@ -785,10 +890,16 @@ const Dashboard = () => {
               <div style={{ fontWeight: 600 }}>🎉 New badge unlocked!</div>
               <div>
                 {recentBadges
-                  .map(type => BADGE_LABELS[type] || type)
+                  .map((type) => BADGE_LABELS[type] || type)
                   .join(", ")}
               </div>
-              <div style={{ fontSize: "11px", marginTop: "4px", opacity: 0.9 }}>
+              <div
+                style={{
+                  fontSize: "11px",
+                  marginTop: "4px",
+                  opacity: 0.9,
+                }}
+              >
                 View in Profile → Badges tab
               </div>
             </div>
@@ -796,10 +907,14 @@ const Dashboard = () => {
           <StatsCard stats={stats}/>
           <QuickActions
             onManualDonation={handleManualDonation}
-            onCreateCampaign={user.role === "organizer" || user.role === "admin" ? () => setCurrentView("create-campaign") : null}
+            onCreateCampaign={
+              user.role === "organizer" || user.role === "admin"
+                ? () => setCurrentView("create-campaign")
+                : null
+            }
           />
           <RecentActivity
-            donations={donations}
+            donations={donationsWithPermissions}
             onDelete={handleDeleteDonation}
             onEdit={handleEditDonation}
           />
@@ -807,10 +922,24 @@ const Dashboard = () => {
       )}
       {currentView === "campaigns" && <CampaignsView/>}
       {currentView === "voting" && <VotingView/>}
-      {currentView === "create-campaign" && <CreateCampaignView userId={user.uid} onBack={() => setCurrentView("dashboard")}/>}
-      {currentView === "admin" && <AdminView onBack={() => setCurrentView("dashboard")}/>}
+      {currentView === "create-campaign" && (
+        <CreateCampaignView
+          userId={user.uid}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      )}
+      {currentView === "admin" && (
+        <AdminView onBack={() => setCurrentView("dashboard")}/>
+      )}
       {currentView === "profile" && <ProfileView onLogout={handleLogout}/>}
-      {currentView === "notifications" && <NotificationsView userId={user.uid} notifications={notifications} setNotifications={setNotifications} onBack={() => setCurrentView("dashboard")}/>}
+      {currentView === "notifications" && (
+        <NotificationsView
+          userId={user.uid}
+          notifications={notifications}
+          setNotifications={setNotifications}
+          onBack={() => setCurrentView("dashboard")}
+        />
+      )}
       <BottomNav currentView={currentView} onNavigate={setCurrentView}/>
     </div>
   );

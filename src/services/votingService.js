@@ -18,6 +18,27 @@ import {
 import { db } from "./firebase";
 
 /**
+ * Get a voting session by its document ID
+ * @param {string} sessionId - Firestore doc id in "votingSessions"
+ * @returns {Object|null} Voting session object or null if not found
+ */
+export const getVotingSessionById = async (sessionId) => {
+  try {
+    const sessionRef = doc(db, "votingSessions", sessionId);
+    const sessionSnap = await getDoc(sessionRef);
+
+    if (!sessionSnap.exists()) {
+      return null;
+    }
+
+    return { id: sessionSnap.id, ...sessionSnap.data() };
+  } catch (error) {
+    console.error("Error getting voting session by id:", error);
+    throw error;
+  }
+};
+
+/**
  * Get or create the current week's voting session (Sunday to Saturday)
  * @returns {Object} Voting session with 5 random campaigns
  */
