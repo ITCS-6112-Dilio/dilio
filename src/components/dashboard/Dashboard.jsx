@@ -21,7 +21,7 @@ import {
   updateDonation,
 } from "../../services/donationService";
 import { BADGE_LABELS, checkAndAwardBadges } from "../../services/userService";
-import { getAllCampaigns } from "../../services/campaignService";
+import { getAllCampaigns, getCampaignById } from "../../services/campaignService";
 import { useUser } from "../../context/UserContext";
 import { fetchNotifications } from "../../services/notificationService";
 import NotificationsView from "../notification/NotificationsView";
@@ -41,6 +41,7 @@ const Dashboard = () => {
   const [ notifications, setNotifications ] = useState([]);
   const [ currentVotingSession, setCurrentVotingSession ] = useState(null);
   const [ sessionsById, setSessionsById ] = useState({});
+  const [ campaignsById, setCampaignsById ] = useState({});
 
   const safeChrome = {
     get: (keys, callback) => {
@@ -150,6 +151,39 @@ const Dashboard = () => {
         setSessionsById(map);
       } else {
         setSessionsById({});
+      }
+
+      // Load campaigns for non-general donations
+      const campaignIds = Array.from(
+        new Set(
+          userDonations
+            .filter(d => d.campaignId && d.campaignId !== "general")
+            .map(d => d.campaignId)
+        )
+      );
+
+      if (campaignIds.length > 0) {
+        const campaigns = await Promise.all(
+          campaignIds.map(async (id) => {
+            try {
+              const c = await getCampaignById(id);
+              return c ? [id, c] : null;
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        const cmap = {};
+        campaigns.forEach(entry => {
+          if (entry) {
+            const [id, campaign] = entry;
+            cmap[id] = campaign;
+          }
+        });
+        setCampaignsById(cmap);
+      } else {
+        setCampaignsById({});
       }
     } catch (error) {
       console.error("Error loading data:", error);
@@ -707,7 +741,10 @@ const Dashboard = () => {
         canDelete = false;
       }
     } else {
-      const campaign = allCampaigns.find((c) => c.id === donation.campaignId);
+      const campaign = donation.campaignId
+        ? campaignsById[donation.campaignId]
+        : null;
+
       if (campaign && campaign.status === "completed") {
         canEdit = false;
         canDelete = false;
