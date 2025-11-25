@@ -1,10 +1,10 @@
 ﻿// src/services/campaignService.js
-import { addDoc, collection, doc, getDoc, getDocs, getFirestore, query, updateDoc, where } from "firebase/firestore";
+import { addDoc, collection, doc, getDoc, getDocs, getFirestore, query, updateDoc, increment, where } from "firebase/firestore";
 import app from "./firebase";
 
 const db = getFirestore(app);
 
-const VALID_STATUSES = [ "approved", "pending", "rejected" ];
+const VALID_STATUSES = ["approved", "pending", "rejected"];
 
 // CAMPAIGN MANAGEMENT
 export const createCampaign = async (campaign) => {
@@ -172,4 +172,45 @@ export const rejectCampaign = async (campaignId) => {
       read: false,
     });
   }
+};
+
+export const donateDirectToCampaign = async ({
+  userId,
+  campaignId,
+  amount,
+  source = "direct_from_dashboard",
+}) => {
+  const numericAmount = Number(amount);
+  if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+    throw new Error("Invalid direct donation amount");
+  }
+
+  const campaignRef = doc(db, "campaigns", campaignId);
+
+  await updateDoc(campaignRef, {
+    raised: increment(numericAmount),
+    updatedAt: new Date(),
+  });
+
+  await addDoc(collection(db, "directDonations"), {
+    userId,
+    campaignId,
+    amount: numericAmount,
+    source,
+    timestamp: Date.now(),
+    type: "direct_transfer",
+  });
+};
+
+export const getUserDirectDonationsTotal = async (userId) => {
+  const q = query(
+    collection(db, "directDonations"),
+    where("userId", "==", userId)
+  );
+
+  const snap = await getDocs(q);
+  return snap.docs.reduce((sum, d) => {
+    const data = d.data();
+    return sum + (Number(data.amount) || 0);
+  }, 0);
 };

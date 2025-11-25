@@ -20,8 +20,8 @@ import {
   saveDonation,
   updateDonation,
 } from "../../services/donationService";
+import { donateDirectToCampaign, getAllCampaigns, getUserDirectDonationsTotal } from "../../services/campaignService";
 import { BADGE_LABELS, checkAndAwardBadges, getUserBadges } from "../../services/userService";
-import { getAllCampaigns } from "../../services/campaignService";
 import { useUser } from "../../context/UserContext";
 import { fetchNotifications } from "../../services/notificationService";
 import NotificationsView from "../notification/NotificationsView";
@@ -29,16 +29,20 @@ import NotificationsView from "../notification/NotificationsView";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: userLoading } = useUser();
-  const [ currentView, setCurrentView ] = useState("dashboard");
-  const [ donations, setDonations ] = useState([]);
-  const [ stats, setStats ] = useState({ totalDonated: 0, points: 0, streak: 0 });
-  const [ loading, setLoading ] = useState(true);
-  const [ pendingPurchase, setPendingPurchase ] = useState(null);
-  const [ badges, setBadges ] = useState([]);
-  const [ recentBadges, setRecentBadges ] = useState([]);
-  const [ allCampaigns, setAllCampaigns ] = useState([]);
-  const [ showCampaignSelector, setShowCampaignSelector ] = useState(false);
-  const [ notifications, setNotifications ] = useState([]);
+  const [currentView, setCurrentView] = useState("dashboard");
+  const [donations, setDonations] = useState([]);
+  const [stats, setStats] = useState({ totalDonated: 0, points: 0, streak: 0 });
+  const [loading, setLoading] = useState(true);
+  const [pendingPurchase, setPendingPurchase] = useState(null);
+  const [badges, setBadges] = useState([]);
+  const [recentBadges, setRecentBadges] = useState([]);
+  const [allCampaigns, setAllCampaigns] = useState([]);
+  const [showCampaignSelector, setShowCampaignSelector] = useState(false);
+  const [notifications, setNotifications] = useState([]);
+  const [showDirectDonate, setShowDirectDonate] = useState(false);
+  const [directDonateCampaigns, setDirectDonateCampaigns] = useState([]);
+  const [directDonateLoading, setDirectDonateLoading] = useState(false);
+  const [allocatedTotal, setAllocatedTotal] = useState(0);
 
   const safeChrome = {
     get: (keys, callback) => {
@@ -71,7 +75,7 @@ const Dashboard = () => {
     loadAllCampaigns();
     checkPendingPurchase();
     fetchNotifications(user.uid).then(setNotifications);
-  }, [ userLoading, user ]);
+  }, [userLoading, user]);
 
   const loadAllCampaigns = async () => {
     try {
@@ -83,7 +87,7 @@ const Dashboard = () => {
   };
 
   const checkPendingPurchase = () => {
-    safeChrome.get([ "pendingPurchase", "selectedCampaign" ], (result) => {
+    safeChrome.get(["pendingPurchase", "selectedCampaign"], (result) => {
       if (result.pendingPurchase) {
         const selectedCampaign = result.selectedCampaign || "general";
         setPendingPurchase({
@@ -105,10 +109,12 @@ const Dashboard = () => {
     try {
       const userDonations = await getDonations(user.uid);
       const userBadges = await getUserBadges(user.uid);
+      const directAllocated = await getUserDirectDonationsTotal(user.uid);
 
       setDonations(userDonations);
       setStats(calculateStats(userDonations));
       setBadges(userBadges);
+      setAllocatedTotal(directAllocated);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -194,7 +200,7 @@ const Dashboard = () => {
       const id = await saveDonation(donation);
 
       setDonations(prev => {
-        const updated = [ { id, ...donation }, ...prev ];
+        const updated = [{ id, ...donation }, ...prev];
         const newStats = calculateStats(updated);
         setStats(newStats);
 
@@ -216,7 +222,7 @@ const Dashboard = () => {
         return updated;
       });
 
-      safeChrome.remove([ "pendingPurchase", "pendingPurchaseApproved", "selectedCampaign" ]);
+      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
       safeChrome.clearBadge();
       setPendingPurchase(null);
       setShowCampaignSelector(false);
@@ -238,7 +244,7 @@ const Dashboard = () => {
       return;
     }
 
-    safeChrome.remove([ "pendingPurchase", "pendingPurchaseApproved", "selectedCampaign" ]);
+    safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
     safeChrome.clearBadge();
     setPendingPurchase(null);
     setShowCampaignSelector(false);
@@ -255,18 +261,21 @@ const Dashboard = () => {
       return;
     }
 
+    // Round-up still computed (will be 0 for whole amounts and for 0)
     const roundUpAmount = Math.ceil(purchaseAmount) - purchaseAmount;
 
+    // Message for whole or zero purchase amounts
     if (roundUpAmount === 0) {
       alert(
         "This purchase does not generate a round-up amount.\n" +
-        "You can still add an additional donation in the next step.",
+        "You can still add an additional donation in the next step."
       );
     }
 
+    // Ask user for extra donation
     const extraInput = prompt(
       `Round-up amount is ${roundUpAmount.toFixed(2)}.\n` +
-      "Enter any additional donation (optional, e.g., 1.00):",
+      "Enter any additional donation (optional, e.g., 1.00):"
     );
 
     let extraDonation = parseFloat(extraInput);
@@ -280,51 +289,20 @@ const Dashboard = () => {
 
     const finalAmount = Math.round((roundUpAmount + extraDonation) * 100) / 100;
 
+    // If purchase was 0 and extra was 0, don’t create a donation
     if (finalAmount <= 0) {
       alert("No donation amount detected.");
       return;
     }
 
-    const choice = prompt(
-      "Choose where to donate:\n" +
-      "0. General Pool (Vote Later)\n" +
-      "1. Choose a Campaign\n\n" +
-      "Enter number:",
-    );
-
-    if (choice === null) return;
-
-    let selectedCampaignId = "general";
-    let campaignName = "General Pool";
-
-    if (choice === "1") {
-      // Show campaign selector
-      setPendingPurchase({
-        amount: purchaseAmount,
-        url: "mock",
-        timestamp: Date.now(),
-        selectedCampaign: "choose",
-        roundUpAmount,
-        extraDonation,
-        finalAmount,
-      });
-      setShowCampaignSelector(true);
-      return;
-    } else if (choice === "0") {
-      selectedCampaignId = "general";
-      campaignName = "General Pool";
-    } else {
-      alert("Invalid choice");
-      return;
-    }
-
+    // 🔹 Always donate mock purchases to the General Pool
     const donation = {
       amount: finalAmount,
       roundUpAmount,
       extraDonation,
       purchaseAmount,
-      campaign: campaignName,
-      campaignId: selectedCampaignId,
+      campaign: "General Pool",
+      campaignId: "general",
       timestamp: Date.now(),
       userId: user.uid,
     };
@@ -333,7 +311,7 @@ const Dashboard = () => {
       const id = await saveDonation(donation);
 
       setDonations(prev => {
-        const updated = [ { id, ...donation }, ...prev ];
+        const updated = [{ id, ...donation }, ...prev];
         const newStats = calculateStats(updated);
         setStats(newStats);
 
@@ -355,7 +333,7 @@ const Dashboard = () => {
         return updated;
       });
 
-      alert(`Thank you! Donation of ${finalAmount.toFixed(2)} recorded for ${campaignName}!`);
+      alert(`Thank you! Donation of ${finalAmount.toFixed(2)} recorded for General Pool!`);
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
@@ -407,6 +385,90 @@ const Dashboard = () => {
       alert("Error updating donation: " + error.message);
     }
   };
+
+  const getRemainingAllocatable = () => {
+    const total = Number(stats.totalDonated) || 0;
+    const remaining = total - (Number(allocatedTotal) || 0);
+    return Math.max(0, Math.round(remaining * 100) / 100); 
+  };
+
+  const openDirectDonate = async () => {
+    const remaining = getRemainingAllocatable();
+
+    if (remaining <= 0) {
+      alert("You've already allocated all of your donations to campaigns.");
+      return;
+    }
+
+    try {
+      setDirectDonateLoading(true);
+      const campaigns = await getAllCampaigns("approved");
+      setDirectDonateCampaigns(campaigns);
+      setShowDirectDonate(true);
+    } catch (error) {
+      console.error("Error loading campaigns for direct donate:", error);
+      alert("Error loading campaigns. Please try again.");
+    } finally {
+      setDirectDonateLoading(false);
+    }
+  };
+
+  const handleDirectDonateToCampaign = async (campaignId) => {
+    const campaign = directDonateCampaigns.find(c => c.id === campaignId);
+    if (!campaign) {
+      alert("Campaign not found");
+      return;
+    }
+
+    const maxAmount = getRemainingAllocatable();
+    if (maxAmount <= 0) {
+      alert("You've already allocated all of your donations.");
+      return;
+    }
+
+    const defaultAmount = maxAmount.toFixed(2);
+
+    const input = window.prompt(
+      `Enter amount to donate directly to "${campaign.name}" (max $${defaultAmount}):`,
+      defaultAmount
+    );
+    if (input === null) return;
+
+    const amount = Math.round(Number(input) * 100) / 100;
+    if (!Number.isFinite(amount) || amount <= 0) {
+      alert("Please enter a valid amount.");
+      return;
+    }
+
+    const amountCents = Math.round(amount * 100);
+    const maxCents = Math.round(maxAmount * 100);
+
+    if (amountCents > maxCents) {
+      alert(`Amount cannot exceed your remaining donations ($${defaultAmount}).`);
+      return;
+    }
+
+    try {
+      await donateDirectToCampaign({
+        userId: user.uid,
+        campaignId: campaign.id,
+        amount,
+        source: "direct_from_dashboard",
+      });
+
+      // increment allocatedTotal so remaining goes down
+      setAllocatedTotal(prev => prev + amount);
+
+      alert(`✅ Donated $${amount.toFixed(2)} directly to "${campaign.name}"`);
+
+      await loadData(); // refresh stats & donations
+      setShowDirectDonate(false);
+    } catch (error) {
+      console.error("Error donating directly to campaign:", error);
+      alert("Error donating to campaign: " + error.message);
+    }
+  };
+
 
   const handleLogout = async () => {
     if (window.confirm("Are you sure you want to logout?")) {
@@ -646,6 +708,62 @@ const Dashboard = () => {
       justifyContent: "center",
       boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
     },
+    directDonateButton: {
+      width: "100%",
+      marginBottom: "12px",
+      padding: "10px",
+      borderRadius: "8px",
+      border: "1px solid #e2e8f0",
+      background: "#f8fafc",
+      fontSize: "13px",
+      fontWeight: 600,
+      color: "#2563eb",
+      cursor: "pointer",
+    },
+
+    directDonatePanel: {
+      marginBottom: "16px",
+      padding: "12px",
+      borderRadius: "10px",
+      background: "#f8fafc",
+      border: "1px solid #e2e8f0",
+    },
+
+    directDonateTitle: {
+      fontSize: "13px",
+      fontWeight: 600,
+      marginBottom: "8px",
+      color: "#0f172a",
+    },
+
+    directDonateList: {
+      display: "flex",
+      flexDirection: "column",
+      gap: "8px",
+      marginTop: "4px",
+      marginBottom: "8px",
+    },
+
+    directDonateItem: {
+      width: "100%",
+      textAlign: "left",
+      padding: "8px 10px",
+      borderRadius: "8px",
+      border: "1px solid #e2e8f0",
+      background: "#ffffff",
+      cursor: "pointer",
+    },
+
+    directDonateClose: {
+      width: "100%",
+      padding: "6px",
+      fontSize: "12px",
+      color: "#64748b",
+      background: "transparent",
+      border: "none",
+      textDecoration: "underline",
+      cursor: "pointer",
+    }
   };
 
   const getInitials = (email) => {
@@ -680,8 +798,8 @@ const Dashboard = () => {
             <span role="img" aria-label="notifications" style={{ fontSize: "24px" }}>🔔</span>
             {notifications.filter(n => !n.read).length > 0 && (
               <span style={styles.notification}>
-          {notifications.filter(n => !n.read).length > 9 ? "9+" : notifications.filter(n => !n.read).length}
-        </span>
+                {notifications.filter(n => !n.read).length > 9 ? "9+" : notifications.filter(n => !n.read).length}
+              </span>
             )}
           </div>
           <button
@@ -697,7 +815,7 @@ const Dashboard = () => {
 
       {currentView === "dashboard" && (
         <div style={styles.content}>
-          {pendingPurchase && pendingPurchase.amount && (
+          {pendingPurchase && Number(pendingPurchase.amount) > 0 && (
             <div style={styles.purchaseAlert}>
               <div style={styles.purchaseTitle}>🛒 Purchase Detected!</div>
               <div style={styles.purchaseAmount}>
@@ -816,7 +934,60 @@ const Dashboard = () => {
               ))}
             </div>
           )}
-          <StatsCard stats={stats}/>
+          <StatsCard stats={stats} />
+          <button
+            style={styles.directDonateButton}
+            onClick={openDirectDonate}
+          >
+            🤝 Donate directly to a campaign
+          </button>
+
+          {/* Simple inline panel to pick a campaign */}
+          {showDirectDonate && (
+            <div style={styles.directDonatePanel}>
+              <div style={styles.directDonateTitle}>
+                Choose a campaign to receive your direct donation:
+              </div>
+
+              {directDonateLoading && (
+                <div style={{ fontSize: "12px", color: "#64748b" }}>
+                  Loading campaigns...
+                </div>
+              )}
+
+              {!directDonateLoading && directDonateCampaigns.length === 0 && (
+                <div style={{ fontSize: "12px", color: "#64748b" }}>
+                  No approved campaigns available right now.
+                </div>
+              )}
+
+              {!directDonateLoading && directDonateCampaigns.length > 0 && (
+                <div style={styles.directDonateList}>
+                  {directDonateCampaigns.map(c => (
+                    <button
+                      key={c.id}
+                      style={styles.directDonateItem}
+                      onClick={() => handleDirectDonateToCampaign(c.id)}
+                    >
+                      <div style={{ fontSize: "13px", fontWeight: 600 }}>{c.name}</div>
+                      {c.category && (
+                        <div style={{ fontSize: "11px", color: "#64748b" }}>
+                          {c.category}
+                        </div>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                style={styles.directDonateClose}
+                onClick={() => setShowDirectDonate(false)}
+              >
+                Close
+              </button>
+            </div>
+          )}
           <QuickActions
             onMockPurchase={handleMockPurchase}
             onViewCampaigns={() => setCurrentView("campaigns")}
@@ -831,8 +1002,8 @@ const Dashboard = () => {
           />
         </div>
       )}
-      {currentView === "campaigns" && <CampaignsView/>}
-      {currentView === "voting" && <VotingView/>}
+      {currentView === "campaigns" && <CampaignsView />}
+      {currentView === "voting" && <VotingView />}
       {
         currentView === "create-campaign" &&
         <CreateCampaignView
@@ -842,11 +1013,11 @@ const Dashboard = () => {
       }
       {
         currentView === "admin" &&
-        <AdminView onBack={() => setCurrentView("dashboard")}/>
+        <AdminView onBack={() => setCurrentView("dashboard")} />
       }
       {
         currentView === "profile" &&
-        <ProfileView onLogout={handleLogout}/>
+        <ProfileView onLogout={handleLogout} />
       }
       {
         currentView === "notifications" &&
@@ -857,7 +1028,7 @@ const Dashboard = () => {
           onBack={() => setCurrentView("dashboard")}
         />
       }
-      <BottomNav currentView={currentView} onNavigate={setCurrentView}/>
+      <BottomNav currentView={currentView} onNavigate={setCurrentView} />
     </div>
   );
 };
