@@ -20,8 +20,8 @@ import {
   saveDonation,
   updateDonation,
 } from "../../services/donationService";
-import { donateDirectToCampaign, getAllCampaigns, getUserDirectDonationsTotal } from "../../services/campaignService";
-import { BADGE_LABELS, checkAndAwardBadges, getUserBadges } from "../../services/userService";
+import { BADGE_LABELS, checkAndAwardBadges } from "../../services/userService";
+import { getAllCampaigns } from "../../services/campaignService";
 import { useUser } from "../../context/UserContext";
 import { fetchNotifications } from "../../services/notificationService";
 import NotificationsView from "../notification/NotificationsView";
@@ -29,20 +29,15 @@ import NotificationsView from "../notification/NotificationsView";
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: userLoading } = useUser();
-  const [currentView, setCurrentView] = useState("dashboard");
-  const [donations, setDonations] = useState([]);
-  const [stats, setStats] = useState({ totalDonated: 0, points: 0, streak: 0 });
-  const [loading, setLoading] = useState(true);
-  const [pendingPurchase, setPendingPurchase] = useState(null);
-  const [badges, setBadges] = useState([]);
-  const [recentBadges, setRecentBadges] = useState([]);
-  const [allCampaigns, setAllCampaigns] = useState([]);
-  const [showCampaignSelector, setShowCampaignSelector] = useState(false);
-  const [notifications, setNotifications] = useState([]);
-  const [showDirectDonate, setShowDirectDonate] = useState(false);
-  const [directDonateCampaigns, setDirectDonateCampaigns] = useState([]);
-  const [directDonateLoading, setDirectDonateLoading] = useState(false);
-  const [allocatedTotal, setAllocatedTotal] = useState(0);
+  const [ currentView, setCurrentView ] = useState("dashboard");
+  const [ donations, setDonations ] = useState([]);
+  const [ stats, setStats ] = useState({ totalDonated: 0, points: 0, streak: 0 });
+  const [ loading, setLoading ] = useState(true);
+  const [ pendingPurchase, setPendingPurchase ] = useState(null);
+  const [ recentBadges, setRecentBadges ] = useState([]);
+  const [ allCampaigns, setAllCampaigns ] = useState([]);
+  const [ showCampaignSelector, setShowCampaignSelector ] = useState(false);
+  const [ notifications, setNotifications ] = useState([]);
 
   const safeChrome = {
     get: (keys, callback) => {
@@ -75,7 +70,7 @@ const Dashboard = () => {
     loadAllCampaigns();
     checkPendingPurchase();
     fetchNotifications(user.uid).then(setNotifications);
-  }, [userLoading, user]);
+  }, [ userLoading, user ]);
 
   const loadAllCampaigns = async () => {
     try {
@@ -87,7 +82,7 @@ const Dashboard = () => {
   };
 
   const checkPendingPurchase = () => {
-    safeChrome.get(["pendingPurchase", "selectedCampaign"], (result) => {
+    safeChrome.get([ "pendingPurchase", "selectedCampaign" ], (result) => {
       if (result.pendingPurchase) {
         const selectedCampaign = result.selectedCampaign || "general";
         setPendingPurchase({
@@ -95,7 +90,6 @@ const Dashboard = () => {
           selectedCampaign: selectedCampaign,
         });
 
-        // If user selected "choose", show campaign selector
         if (selectedCampaign === "choose") {
           setShowCampaignSelector(true);
         }
@@ -108,13 +102,8 @@ const Dashboard = () => {
 
     try {
       const userDonations = await getDonations(user.uid);
-      const userBadges = await getUserBadges(user.uid);
-      const directAllocated = await getUserDirectDonationsTotal(user.uid);
-
       setDonations(userDonations);
       setStats(calculateStats(userDonations));
-      setBadges(userBadges);
-      setAllocatedTotal(directAllocated);
     } catch (error) {
       console.error("Error loading data:", error);
     } finally {
@@ -200,7 +189,7 @@ const Dashboard = () => {
       const id = await saveDonation(donation);
 
       setDonations(prev => {
-        const updated = [{ id, ...donation }, ...prev];
+        const updated = [ { id, ...donation }, ...prev ];
         const newStats = calculateStats(updated);
         setStats(newStats);
 
@@ -210,10 +199,8 @@ const Dashboard = () => {
               const names = newBadgeTypes
                 .map(type => BADGE_LABELS[type] || type)
                 .join(", ");
-              alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}`);
+              alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}\n\nView your badges in Profile → Badges tab!`);
 
-              const freshBadges = await getUserBadges(user.uid);
-              setBadges(freshBadges);
               setRecentBadges(newBadgeTypes);
             }
           })
@@ -222,7 +209,7 @@ const Dashboard = () => {
         return updated;
       });
 
-      safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
+      safeChrome.remove([ "pendingPurchase", "pendingPurchaseApproved", "selectedCampaign" ]);
       safeChrome.clearBadge();
       setPendingPurchase(null);
       setShowCampaignSelector(false);
@@ -244,74 +231,69 @@ const Dashboard = () => {
       return;
     }
 
-    safeChrome.remove(["pendingPurchase", "pendingPurchaseApproved", "selectedCampaign"]);
+    safeChrome.remove([ "pendingPurchase", "pendingPurchaseApproved", "selectedCampaign" ]);
     safeChrome.clearBadge();
     setPendingPurchase(null);
     setShowCampaignSelector(false);
   };
 
-  const handleMockPurchase = async () => {
-    const amount = prompt("Enter mock purchase amount (e.g., 24.73, or 0 to skip):");
+  const handleManualDonation = async () => {
+    const amount = prompt("Enter donation amount (e.g., 5.00):");
     if (!amount) return;
 
-    const purchaseAmount = parseFloat(amount);
+    const donationAmount = parseFloat(amount);
 
-    if (isNaN(purchaseAmount) || purchaseAmount < 0) {
-      alert("Please enter a valid amount (0 or greater).");
+    if (isNaN(donationAmount) || donationAmount <= 0) {
+      alert("Please enter a valid amount greater than 0.");
       return;
     }
 
-    // Round-up still computed (will be 0 for whole amounts and for 0)
-    const roundUpAmount = Math.ceil(purchaseAmount) - purchaseAmount;
+    const finalAmount = Math.round(donationAmount * 100) / 100;
 
-    // Message for whole or zero purchase amounts
-    if (roundUpAmount === 0) {
-      alert(
-        "This purchase does not generate a round-up amount.\n" +
-        "You can still add an additional donation in the next step."
-      );
-    }
-
-    // Ask user for extra donation
-    const extraInput = prompt(
-      `Round-up amount is ${roundUpAmount.toFixed(2)}.\n` +
-      "Enter any additional donation (optional, e.g., 1.00):"
+    const choice = prompt(
+      "Choose where to donate:\n" +
+      "0. General Pool (Vote Later)\n" +
+      "1. Choose a Campaign\n\n" +
+      "Enter number:"
     );
 
-    let extraDonation = parseFloat(extraInput);
+    if (choice === null) return;
 
-    if (extraInput && (isNaN(extraDonation) || extraDonation < 0)) {
-      alert("Invalid additional donation.");
+    let selectedCampaignId = "general";
+    let campaignName = "General Pool";
+
+    if (choice === "1") {
+      setPendingPurchase({
+        amount: finalAmount,
+        url: "manual",
+        timestamp: Date.now(),
+        selectedCampaign: "choose",
+        isManual: true,
+      });
+      setShowCampaignSelector(true);
+      return;
+    } else if (choice === "0") {
+      selectedCampaignId = "general";
+      campaignName = "General Pool";
+    } else {
+      alert("Invalid choice");
       return;
     }
 
-    if (!extraInput) extraDonation = 0;
-
-    const finalAmount = Math.round((roundUpAmount + extraDonation) * 100) / 100;
-
-    // If purchase was 0 and extra was 0, don’t create a donation
-    if (finalAmount <= 0) {
-      alert("No donation amount detected.");
-      return;
-    }
-
-    // 🔹 Always donate mock purchases to the General Pool
     const donation = {
       amount: finalAmount,
-      roundUpAmount,
-      extraDonation,
-      purchaseAmount,
-      campaign: "General Pool",
-      campaignId: "general",
+      campaign: campaignName,
+      campaignId: selectedCampaignId,
       timestamp: Date.now(),
       userId: user.uid,
+      source: "manual",
     };
 
     try {
       const id = await saveDonation(donation);
 
       setDonations(prev => {
-        const updated = [{ id, ...donation }, ...prev];
+        const updated = [ { id, ...donation }, ...prev ];
         const newStats = calculateStats(updated);
         setStats(newStats);
 
@@ -321,10 +303,8 @@ const Dashboard = () => {
               const names = newBadgeTypes
                 .map(type => BADGE_LABELS[type] || type)
                 .join(", ");
-              alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}`);
+              alert(`🎉 New badge${newBadgeTypes.length > 1 ? "s" : ""} unlocked: ${names}\n\nView your badges in Profile → Badges tab!`);
 
-              const freshBadges = await getUserBadges(user.uid);
-              setBadges(freshBadges);
               setRecentBadges(newBadgeTypes);
             }
           })
@@ -333,7 +313,7 @@ const Dashboard = () => {
         return updated;
       });
 
-      alert(`Thank you! Donation of ${finalAmount.toFixed(2)} recorded for General Pool!`);
+      alert(`Thank you! Donation of $${finalAmount.toFixed(2)} recorded for ${campaignName}!`);
     } catch (error) {
       alert("Error saving donation: " + error.message);
     }
@@ -386,90 +366,6 @@ const Dashboard = () => {
     }
   };
 
-  const getRemainingAllocatable = () => {
-    const total = Number(stats.totalDonated) || 0;
-    const remaining = total - (Number(allocatedTotal) || 0);
-    return Math.max(0, Math.round(remaining * 100) / 100); 
-  };
-
-  const openDirectDonate = async () => {
-    const remaining = getRemainingAllocatable();
-
-    if (remaining <= 0) {
-      alert("You've already allocated all of your donations to campaigns.");
-      return;
-    }
-
-    try {
-      setDirectDonateLoading(true);
-      const campaigns = await getAllCampaigns("approved");
-      setDirectDonateCampaigns(campaigns);
-      setShowDirectDonate(true);
-    } catch (error) {
-      console.error("Error loading campaigns for direct donate:", error);
-      alert("Error loading campaigns. Please try again.");
-    } finally {
-      setDirectDonateLoading(false);
-    }
-  };
-
-  const handleDirectDonateToCampaign = async (campaignId) => {
-    const campaign = directDonateCampaigns.find(c => c.id === campaignId);
-    if (!campaign) {
-      alert("Campaign not found");
-      return;
-    }
-
-    const maxAmount = getRemainingAllocatable();
-    if (maxAmount <= 0) {
-      alert("You've already allocated all of your donations.");
-      return;
-    }
-
-    const defaultAmount = maxAmount.toFixed(2);
-
-    const input = window.prompt(
-      `Enter amount to donate directly to "${campaign.name}" (max $${defaultAmount}):`,
-      defaultAmount
-    );
-    if (input === null) return;
-
-    const amount = Math.round(Number(input) * 100) / 100;
-    if (!Number.isFinite(amount) || amount <= 0) {
-      alert("Please enter a valid amount.");
-      return;
-    }
-
-    const amountCents = Math.round(amount * 100);
-    const maxCents = Math.round(maxAmount * 100);
-
-    if (amountCents > maxCents) {
-      alert(`Amount cannot exceed your remaining donations ($${defaultAmount}).`);
-      return;
-    }
-
-    try {
-      await donateDirectToCampaign({
-        userId: user.uid,
-        campaignId: campaign.id,
-        amount,
-        source: "direct_from_dashboard",
-      });
-
-      // increment allocatedTotal so remaining goes down
-      setAllocatedTotal(prev => prev + amount);
-
-      alert(`✅ Donated $${amount.toFixed(2)} directly to "${campaign.name}"`);
-
-      await loadData(); // refresh stats & donations
-      setShowDirectDonate(false);
-    } catch (error) {
-      console.error("Error donating directly to campaign:", error);
-      alert("Error donating to campaign: " + error.message);
-    }
-  };
-
-
   const handleLogout = async () => {
     if (window.confirm("Are you sure you want to logout?")) {
       await signOut(auth);
@@ -483,7 +379,7 @@ const Dashboard = () => {
       height: "520px",
       paddingBottom: "100px",
       background: "#ffffff",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif",
       display: "flex",
       flexDirection: "column",
       overflowY: "auto",
@@ -502,6 +398,7 @@ const Dashboard = () => {
       fontSize: "20px",
       fontWeight: 600,
       margin: 0,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     content: {
       padding: "20px",
@@ -530,15 +427,18 @@ const Dashboard = () => {
       fontWeight: 600,
       marginRight: "12px",
       fontSize: "16px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     userName: {
       fontSize: "16px",
       marginBottom: "4px",
       fontWeight: 600,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     userEmail: {
       fontSize: "12px",
       color: "#64748b",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     roleBadge: {
       fontSize: "10px",
@@ -548,6 +448,7 @@ const Dashboard = () => {
       borderRadius: "12px",
       marginLeft: "8px",
       textTransform: "uppercase",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     purchaseAlert: {
       background: "#eff6ff",
@@ -561,12 +462,14 @@ const Dashboard = () => {
       fontWeight: 600,
       color: "#1e40af",
       marginBottom: "8px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     purchaseAmount: {
       fontSize: "24px",
       fontWeight: 700,
       color: "#2563eb",
       marginBottom: "8px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     campaignBadge: {
       display: "inline-block",
@@ -576,6 +479,7 @@ const Dashboard = () => {
       color: "#1e40af",
       borderRadius: "12px",
       marginBottom: "12px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     buttonGroup: {
       display: "flex",
@@ -590,6 +494,7 @@ const Dashboard = () => {
       borderRadius: "6px",
       fontWeight: 600,
       cursor: "pointer",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     declineBtn: {
       flex: 1,
@@ -600,6 +505,7 @@ const Dashboard = () => {
       borderRadius: "6px",
       fontWeight: 600,
       cursor: "pointer",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     logoutBtn: {
       marginLeft: "auto",
@@ -610,8 +516,9 @@ const Dashboard = () => {
       borderRadius: "6px",
       cursor: "pointer",
       fontSize: "13px",
-      fontWeight: 800,
+      fontWeight: 600,
       transition: "0.2s",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     cancelBtn: {
       marginTop: "8px",
@@ -624,6 +531,7 @@ const Dashboard = () => {
       textDecoration: "underline",
       cursor: "pointer",
       textAlign: "center",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     badgeToast: {
       marginBottom: "12px",
@@ -633,20 +541,7 @@ const Dashboard = () => {
       border: "1px solid #bbf7d0",
       fontSize: "12px",
       color: "#166534",
-    },
-    badgeRow: {
-      marginBottom: "16px",
-    },
-    badgeChip: {
-      display: "inline-block",
-      marginRight: "6px",
-      marginBottom: "4px",
-      padding: "4px 10px",
-      borderRadius: "999px",
-      background: "#e0f2fe",
-      color: "#0369a1",
-      fontSize: "11px",
-      fontWeight: 600,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     campaignSelector: {
       marginTop: "12px",
@@ -666,29 +561,29 @@ const Dashboard = () => {
       cursor: "pointer",
       fontSize: "13px",
       transition: "background 0.2s",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     campaignOptionLast: {
       borderBottom: "none",
-    },
-    campaignOptionHover: {
-      background: "#eff6ff",
-      borderColor: "#2563eb",
     },
     campaignTitle: {
       fontWeight: 600,
       marginBottom: "4px",
       color: "#0f172a",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     campaignDesc: {
       fontSize: "11px",
       color: "#64748b",
       lineHeight: "1.4",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     selectorHeader: {
       fontSize: "13px",
       fontWeight: 600,
       color: "#475569",
       marginBottom: "8px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     notification: {
       position: "absolute",
@@ -707,63 +602,8 @@ const Dashboard = () => {
       alignItems: "center",
       justifyContent: "center",
       boxShadow: "0 1px 4px rgba(0,0,0,0.10)",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
-    directDonateButton: {
-      width: "100%",
-      marginBottom: "12px",
-      padding: "10px",
-      borderRadius: "8px",
-      border: "1px solid #e2e8f0",
-      background: "#f8fafc",
-      fontSize: "13px",
-      fontWeight: 600,
-      color: "#2563eb",
-      cursor: "pointer",
-    },
-
-    directDonatePanel: {
-      marginBottom: "16px",
-      padding: "12px",
-      borderRadius: "10px",
-      background: "#f8fafc",
-      border: "1px solid #e2e8f0",
-    },
-
-    directDonateTitle: {
-      fontSize: "13px",
-      fontWeight: 600,
-      marginBottom: "8px",
-      color: "#0f172a",
-    },
-
-    directDonateList: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "8px",
-      marginTop: "4px",
-      marginBottom: "8px",
-    },
-
-    directDonateItem: {
-      width: "100%",
-      textAlign: "left",
-      padding: "8px 10px",
-      borderRadius: "8px",
-      border: "1px solid #e2e8f0",
-      background: "#ffffff",
-      cursor: "pointer",
-    },
-
-    directDonateClose: {
-      width: "100%",
-      padding: "6px",
-      fontSize: "12px",
-      color: "#64748b",
-      background: "transparent",
-      border: "none",
-      textDecoration: "underline",
-      cursor: "pointer",
-    }
   };
 
   const getInitials = (email) => {
@@ -781,7 +621,7 @@ const Dashboard = () => {
   if (loading || userLoading) {
     return (
       <div style={styles.container}>
-        <div style={{ padding: "40px", textAlign: "center" }}>Loading...</div>
+        <div style={{ padding: "40px", textAlign: "center", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>Loading...</div>
       </div>
     );
   }
@@ -815,9 +655,11 @@ const Dashboard = () => {
 
       {currentView === "dashboard" && (
         <div style={styles.content}>
-          {pendingPurchase && Number(pendingPurchase.amount) > 0 && (
+          {pendingPurchase && pendingPurchase.amount && (
             <div style={styles.purchaseAlert}>
-              <div style={styles.purchaseTitle}>🛒 Purchase Detected!</div>
+              <div style={styles.purchaseTitle}>
+                {pendingPurchase.isManual ? "💰 Manual Donation" : "🛒 Purchase Detected!"}
+              </div>
               <div style={styles.purchaseAmount}>
                 ${pendingPurchase.amount.toFixed(2)}
               </div>
@@ -826,16 +668,15 @@ const Dashboard = () => {
                   <span style={styles.campaignBadge}>
                     → {getCampaignName(pendingPurchase.selectedCampaign)}
                   </span>
-                  <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b" }}>
-                    Round up to{" "}
-                    <strong>
-                      ${Math.ceil(pendingPurchase.amount).toFixed(2)}
-                    </strong>{" "}
-                    and donate{" "}
-                    <strong style={{ color: "#2563eb" }}>
-                      ${(Math.ceil(pendingPurchase.amount) - pendingPurchase.amount).toFixed(2)}
-                    </strong>
-                    .
+                  <p style={{ fontSize: "14px", marginBottom: "12px", color: "#64748b", fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif" }}>
+                    {pendingPurchase.isManual ? (
+                      <>Donate <strong style={{ color: "#2563eb" }}>${pendingPurchase.amount.toFixed(2)}</strong> to support a campus cause.</>
+                    ) : (
+                      <>
+                        Round up to <strong>${Math.ceil(pendingPurchase.amount).toFixed(2)}</strong> and donate{" "}
+                        <strong style={{ color: "#2563eb" }}>${(Math.ceil(pendingPurchase.amount) - pendingPurchase.amount).toFixed(2)}</strong>.
+                      </>
+                    )}
                   </p>
                   {pendingPurchase.selectedCampaign === "choose" && (
                     <button
@@ -865,12 +706,8 @@ const Dashboard = () => {
                     <div
                       style={styles.campaignOption}
                       onClick={() => handleSelectCampaign("general")}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.background = "#eff6ff";
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.background = "white";
-                      }}
+                      onMouseEnter={(e) => e.currentTarget.style.background = "#eff6ff"}
+                      onMouseLeave={(e) => e.currentTarget.style.background = "white"}
                     >
                       <div style={styles.campaignTitle}>General Pool</div>
                       <div style={styles.campaignDesc}>Vote later for distribution</div>
@@ -880,12 +717,8 @@ const Dashboard = () => {
                         key={campaign.id}
                         style={idx === allCampaigns.length - 1 ? { ...styles.campaignOption, ...styles.campaignOptionLast } : styles.campaignOption}
                         onClick={() => handleSelectCampaign(campaign.id)}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.background = "#eff6ff";
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.background = "white";
-                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.background = "#eff6ff"}
+                        onMouseLeave={(e) => e.currentTarget.style.background = "white"}
                       >
                         <div style={styles.campaignTitle}>{campaign.name}</div>
                         <div style={styles.campaignDesc}>{campaign.description}</div>
@@ -923,77 +756,15 @@ const Dashboard = () => {
                   .map(type => BADGE_LABELS[type] || type)
                   .join(", ")}
               </div>
-            </div>
-          )}
-          {badges.length > 0 && (
-            <div style={styles.badgeRow}>
-              {badges.map(badge => (
-                <span key={badge.id} style={styles.badgeChip}>
-                  {BADGE_LABELS[badge.badgeType] || badge.badgeType}
-                </span>
-              ))}
-            </div>
-          )}
-          <StatsCard stats={stats} />
-          <button
-            style={styles.directDonateButton}
-            onClick={openDirectDonate}
-          >
-            🤝 Donate directly to a campaign
-          </button>
-
-          {/* Simple inline panel to pick a campaign */}
-          {showDirectDonate && (
-            <div style={styles.directDonatePanel}>
-              <div style={styles.directDonateTitle}>
-                Choose a campaign to receive your direct donation:
+              <div style={{ fontSize: "11px", marginTop: "4px", opacity: 0.9 }}>
+                View in Profile → Badges tab
               </div>
-
-              {directDonateLoading && (
-                <div style={{ fontSize: "12px", color: "#64748b" }}>
-                  Loading campaigns...
-                </div>
-              )}
-
-              {!directDonateLoading && directDonateCampaigns.length === 0 && (
-                <div style={{ fontSize: "12px", color: "#64748b" }}>
-                  No approved campaigns available right now.
-                </div>
-              )}
-
-              {!directDonateLoading && directDonateCampaigns.length > 0 && (
-                <div style={styles.directDonateList}>
-                  {directDonateCampaigns.map(c => (
-                    <button
-                      key={c.id}
-                      style={styles.directDonateItem}
-                      onClick={() => handleDirectDonateToCampaign(c.id)}
-                    >
-                      <div style={{ fontSize: "13px", fontWeight: 600 }}>{c.name}</div>
-                      {c.category && (
-                        <div style={{ fontSize: "11px", color: "#64748b" }}>
-                          {c.category}
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              <button
-                style={styles.directDonateClose}
-                onClick={() => setShowDirectDonate(false)}
-              >
-                Close
-              </button>
             </div>
           )}
+          <StatsCard stats={stats}/>
           <QuickActions
-            onMockPurchase={handleMockPurchase}
-            onViewCampaigns={() => setCurrentView("campaigns")}
-            onVote={() => setCurrentView("voting")}
+            onManualDonation={handleManualDonation}
             onCreateCampaign={user.role === "organizer" || user.role === "admin" ? () => setCurrentView("create-campaign") : null}
-            onAdminPanel={user.role === "admin" ? () => setCurrentView("admin") : null}
           />
           <RecentActivity
             donations={donations}
@@ -1002,33 +773,13 @@ const Dashboard = () => {
           />
         </div>
       )}
-      {currentView === "campaigns" && <CampaignsView />}
-      {currentView === "voting" && <VotingView />}
-      {
-        currentView === "create-campaign" &&
-        <CreateCampaignView
-          userId={user.uid}
-          onBack={() => setCurrentView("dashboard")}
-        />
-      }
-      {
-        currentView === "admin" &&
-        <AdminView onBack={() => setCurrentView("dashboard")} />
-      }
-      {
-        currentView === "profile" &&
-        <ProfileView onLogout={handleLogout} />
-      }
-      {
-        currentView === "notifications" &&
-        <NotificationsView
-          userId={user.uid}
-          notifications={notifications}
-          setNotifications={setNotifications}
-          onBack={() => setCurrentView("dashboard")}
-        />
-      }
-      <BottomNav currentView={currentView} onNavigate={setCurrentView} />
+      {currentView === "campaigns" && <CampaignsView/>}
+      {currentView === "voting" && <VotingView/>}
+      {currentView === "create-campaign" && <CreateCampaignView userId={user.uid} onBack={() => setCurrentView("dashboard")}/>}
+      {currentView === "admin" && <AdminView onBack={() => setCurrentView("dashboard")}/>}
+      {currentView === "profile" && <ProfileView onLogout={handleLogout}/>}
+      {currentView === "notifications" && <NotificationsView userId={user.uid} notifications={notifications} setNotifications={setNotifications} onBack={() => setCurrentView("dashboard")}/>}
+      <BottomNav currentView={currentView} onNavigate={setCurrentView}/>
     </div>
   );
 };

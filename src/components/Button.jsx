@@ -17,6 +17,7 @@ const Button = ({
     cursor: "pointer",
     width: "100%",
     fontSize: "1rem",
+    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
   };
   return (
     <button onClick={onClick} style={styles} {...props}>

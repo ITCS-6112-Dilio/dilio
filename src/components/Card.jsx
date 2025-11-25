@@ -9,6 +9,7 @@ const defaultStyle = {
   borderRadius: 8,
   boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
   background: "#fff",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 };
 
 const Card = ({ children, style = {} }) => (

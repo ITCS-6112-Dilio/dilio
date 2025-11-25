@@ -69,10 +69,12 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
       fontWeight: 600,
       margin: 0,
       marginBottom: "8px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     subtitle: {
       fontSize: "13px",
       color: "#64748b",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     form: {
       display: "flex",
@@ -86,9 +88,9 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
       borderRadius: 4,
       border: "1px solid #ccc",
       fontSize: "14px",
-      fontFamily: "inherit",
       boxSizing: "border-box",
       resize: "vertical",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     select: {
       width: "100%",
@@ -97,6 +99,7 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
       border: "1px solid #ccc",
       fontSize: "14px",
       boxSizing: "border-box",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     backBtn: {
       marginTop: "10px",

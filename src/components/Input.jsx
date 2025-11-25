@@ -6,12 +6,14 @@ const inputBaseStyle = {
   border: "1px solid #ccc",
   fontSize: "1rem",
   boxSizing: "border-box",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 };
 
 const errorStyle = {
   color: "#db4437",
   fontSize: "0.92em",
   margin: "4px 0 0 0",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 };
 
 const labelStyle = {
@@ -19,6 +21,7 @@ const labelStyle = {
   marginBottom: 4,
   fontWeight: 500,
   fontSize: "1em",
+  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 };
 
 const Input = ({

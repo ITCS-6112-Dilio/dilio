@@ -17,6 +17,7 @@ const CampaignCard = ({ campaign, editable = false, onEdit }) => {
       fontWeight: 600,
       margin: 0,
       marginBottom: "4px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     category: {
       display: "inline-block",
@@ -26,12 +27,14 @@ const CampaignCard = ({ campaign, editable = false, onEdit }) => {
       color: "#3730a3",
       borderRadius: "4px",
       marginBottom: "8px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     description: {
       fontSize: "13px",
       color: "#64748b",
       marginBottom: "12px",
       lineHeight: 1.5,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     progressBar: {
       width: "100%",
@@ -54,10 +57,12 @@ const CampaignCard = ({ campaign, editable = false, onEdit }) => {
     },
     statLabel: {
       color: "#64748b",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     statValue: {
       fontWeight: 600,
       color: "#0f172a",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     editBtn: {
       marginTop: 10,
@@ -67,6 +72,7 @@ const CampaignCard = ({ campaign, editable = false, onEdit }) => {
       borderRadius: 6,
       fontSize: 13,
       cursor: "pointer",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
   };
 
