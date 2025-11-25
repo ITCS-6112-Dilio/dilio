@@ -92,6 +92,19 @@ export const getAllCampaigns = async (status) => {
   }
 };
 
+export const getCampaignById = async (campaignId) => {
+  try {
+    const ref = doc(db, "campaigns", campaignId);
+    const snap = await getDoc(ref);
+    if (!snap.exists()) return null;
+    return { id: snap.id, ...snap.data() };
+  } catch (error) {
+    console.error("Error getting campaign by id:", error);
+    throw error;
+  }
+};
+
+
 // Get campaigns by organizer ID
 export const getCampaignsByOrganizer = async (organizerId) => {
   try {
