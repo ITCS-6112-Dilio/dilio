@@ -9,13 +9,10 @@ const NotificationsView = ({ userId, notifications, setNotifications, onBack }) 
 
   const styles = {
     container: {
-      padding: "24px",
-      maxWidth: 480,
-      margin: "28px auto",
-      background: "white",
-      borderRadius: 14,
-      minHeight: 300,
-      boxShadow: "0 3px 18px rgba(0,0,0,0.12)",
+      padding: "20px",
+      paddingBottom: "100px",
+      height: "520px",
+      overflowY: "auto",
     },
     header: {
       fontWeight: 600,

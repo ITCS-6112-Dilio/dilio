@@ -1,7 +1,7 @@
 name: Notify Voting Session Ending
 on:
   schedule:
-    - cron: '57 2 * * *'  # 21:45 EST -> 02:45 UTC (GitHub Actions schedules in UTC)
+    - cron: '27 2 * * 6'  # Saturday 09:27 PM EST
   workflow_dispatch:
 jobs:
   notify-voting-end:
