@@ -112,6 +112,16 @@ const Dashboard = () => {
   };
 
   useEffect(() => {
+    if (showCampaignSelector) {
+      // Scroll to top when campaign selector is shown
+      const container = document.querySelector('[style*="overflowY: auto"]');
+      if (container) {
+        container.scrollTo({ top: 0, behavior: 'smooth' });
+      }
+    }
+  }, [showCampaignSelector]);
+
+  useEffect(() => {
     if (!chrome?.storage?.onChanged) return;
 
     const handleStorageChange = (changes, area) => {
@@ -696,14 +706,22 @@ const Dashboard = () => {
                     </button>
                   )}
                   {pendingPurchase.selectedCampaign !== "choose" && (
-                    <div style={styles.buttonGroup}>
-                      <button style={styles.confirmBtn} onClick={handleConfirmDonation}>
-                        Confirm Donation
+                    <>
+                      <button
+                        style={{ ...styles.confirmBtn, marginBottom: "8px", width: "100%" }}
+                        onClick={() => setShowCampaignSelector(true)}
+                      >
+                        Change Campaign
                       </button>
-                      <button style={styles.declineBtn} onClick={handleDeclineDonation}>
-                        Not Now
-                      </button>
-                    </div>
+                      <div style={styles.buttonGroup}>
+                        <button style={styles.confirmBtn} onClick={handleConfirmDonation}>
+                          Confirm Donation
+                        </button>
+                        <button style={styles.declineBtn} onClick={handleDeclineDonation}>
+                          Not Now
+                        </button>
+                      </div>
+                    </>
                   )}
                 </>
               ) : (
@@ -735,10 +753,15 @@ const Dashboard = () => {
                     ))}
                   </div>
                   <button
-                    style={{ ...styles.declineBtn, marginTop: "12px" }}
+                    style={{ 
+                      ...styles.declineBtn, 
+                      marginTop: "12px",
+                      fontWeight: 600,
+                      fontSize: "14px"
+                    }}
                     onClick={() => setShowCampaignSelector(false)}
                   >
-                    Back
+                    ← Back to Selection
                   </button>
                 </>
               )}
