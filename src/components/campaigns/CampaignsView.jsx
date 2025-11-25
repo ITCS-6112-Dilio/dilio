@@ -1,7 +1,7 @@
 ﻿// src/components/campaigns/CampaignsView.jsx
 import { useEffect, useState } from "react";
 import CampaignCard from "./CampaignCard";
-import { getAllCampaigns, getOrganizerTotalRaised, getCampaignsByOrganizer } from "../../services/campaignService";
+import { getAllCampaigns, getOrganizerTotalRaised } from "../../services/campaignService";
 import { useUser } from "../../context/UserContext";
 import CreateCampaignView from "./CreateCampaignView";
 
@@ -13,17 +13,23 @@ const CampaignsView = () => {
   const [yourCampaignsStatus, setYourCampaignsStatus] = useState("pending");
   const [editingCampaign, setEditingCampaign] = useState(null);
   const [organizerTotal, setOrganizerTotal] = useState(0);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 5;
 
   useEffect(() => {
     loadCampaigns();
   }, []);
 
   useEffect(() => {
-    // Load organizer total when viewing "yours" tab
     if (activeTab === "yours" && (user.role === "organizer" || user.role === "admin")) {
       loadOrganizerTotal();
     }
   }, [activeTab, user.uid, user.role]);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery, activeTab]);
 
   const loadCampaigns = async () => {
     try {
@@ -50,12 +56,40 @@ const CampaignsView = () => {
   const approvedCampaigns = yourCampaigns.filter(c => c.status === "approved");
   const rejectedCampaigns = yourCampaigns.filter(c => c.status === "rejected");
 
+  const activeCampaigns = campaigns.filter(c => c.status === "approved");
+
+  const filterCampaigns = (campaignList) => {
+    if (!searchQuery.trim()) return campaignList;
+    const query = searchQuery.toLowerCase();
+    return campaignList.filter(c => 
+      c.name.toLowerCase().includes(query) ||
+      c.description.toLowerCase().includes(query) ||
+      c.category.toLowerCase().includes(query)
+    );
+  };
+
+  const getDisplayedCampaigns = () => {
+    if (activeTab === "active") {
+      return filterCampaigns(activeCampaigns);
+    }
+    if (yourCampaignsStatus === "pending") return filterCampaigns(pendingCampaigns);
+    if (yourCampaignsStatus === "approved") return filterCampaigns(approvedCampaigns);
+    return filterCampaigns(rejectedCampaigns);
+  };
+
+  const displayedCampaigns = getDisplayedCampaigns();
+  const totalPages = Math.ceil(displayedCampaigns.length / itemsPerPage);
+  const startIdx = currentPage * itemsPerPage;
+  const endIdx = startIdx + itemsPerPage;
+  const currentCampaigns = displayedCampaigns.slice(startIdx, endIdx);
+
   const styles = {
     container: {
       padding: "20px",
       paddingBottom: "100px",
       height: "520px",
       overflowY: "auto",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     header: {
       marginBottom: "20px",
@@ -64,11 +98,23 @@ const CampaignsView = () => {
       fontSize: "18px",
       fontWeight: 600,
       margin: 0,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    },
+    searchBox: {
+      width: "100%",
+      padding: "10px 12px",
+      fontSize: "14px",
+      border: "1px solid #e2e8f0",
+      borderRadius: "8px",
+      marginBottom: "16px",
+      boxSizing: "border-box",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     list: {
       display: "flex",
       flexDirection: "column",
       gap: "16px",
+      marginBottom: "16px",
     },
     organizerStats: {
       background: "linear-gradient(135deg, #10b981, #059669)",
@@ -82,15 +128,80 @@ const CampaignsView = () => {
       fontSize: "13px",
       opacity: 0.9,
       marginBottom: "4px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     statAmount: {
       fontSize: "28px",
       fontWeight: 700,
       marginBottom: "4px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     statSubtext: {
       fontSize: "12px",
       opacity: 0.85,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    },
+    pagination: {
+      display: "flex",
+      justifyContent: "center",
+      alignItems: "center",
+      gap: "8px",
+      marginTop: "16px",
+    },
+    pageBtn: {
+      padding: "8px 16px",
+      fontSize: "13px",
+      border: "1px solid #e2e8f0",
+      borderRadius: "6px",
+      background: "#ffffff",
+      color: "#64748b",
+      cursor: "pointer",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      transition: "all 0.2s",
+      fontWeight: 500,
+    },
+    pageBtnDisabled: {
+      opacity: 0.5,
+      cursor: "not-allowed",
+    },
+    pageInfo: {
+      fontSize: "13px",
+      color: "#64748b",
+      fontWeight: 500,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    },
+    noResults: {
+      textAlign: "center",
+      padding: "40px 20px",
+      color: "#64748b",
+      fontSize: "14px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    },
+    tabButton: {
+      fontWeight: 400,
+      borderBottom: "none",
+      background: "none",
+      border: "none",
+      fontSize: "18px",
+      cursor: "pointer",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    },
+    tabButtonActive: {
+      fontWeight: 700,
+      borderBottom: "2px solid #2563eb",
+    },
+    subTabButton: {
+      fontWeight: 400,
+      borderBottom: "none",
+      background: "none",
+      border: "none",
+      fontSize: "15px",
+      cursor: "pointer",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    },
+    subTabButtonActive: {
+      fontWeight: 700,
+      borderBottom: "2px solid #2563eb",
     },
   };
 
@@ -107,9 +218,8 @@ const CampaignsView = () => {
       <div style={{ display: "flex", gap: 20, alignItems: "center", marginBottom: 20 }}>
         <button
           style={{
-            fontWeight: activeTab === "active" ? 700 : 400,
-            borderBottom: activeTab === "active" ? "2px solid #2563eb" : "none",
-            background: "none", border: "none", fontSize: "18px", cursor: "pointer",
+            ...styles.tabButton,
+            ...(activeTab === "active" ? styles.tabButtonActive : {}),
           }}
           onClick={() => setActiveTab("active")}
         >
@@ -118,9 +228,8 @@ const CampaignsView = () => {
         {(user.role === "organizer" || user.role === "admin") && (
           <button
             style={{
-              fontWeight: activeTab === "yours" ? 700 : 400,
-              borderBottom: activeTab === "yours" ? "2px solid #2563eb" : "none",
-              background: "none", border: "none", fontSize: "18px", cursor: "pointer",
+              ...styles.tabButton,
+              ...(activeTab === "yours" ? styles.tabButtonActive : {}),
             }}
             onClick={() => setActiveTab("yours")}
           >
@@ -129,19 +238,64 @@ const CampaignsView = () => {
         )}
       </div>
 
+      <input
+        type="text"
+        placeholder="Search campaigns..."
+        value={searchQuery}
+        onChange={(e) => setSearchQuery(e.target.value)}
+        style={styles.searchBox}
+      />
+
       {activeTab === "active" && (
-        <div style={styles.list}>
-          {campaigns
-            .filter(c => c.status === "approved")
-            .map(campaign => (
-              <CampaignCard key={campaign.id} campaign={campaign}/>
-            ))}
-        </div>
+        <>
+          {currentCampaigns.length === 0 ? (
+            <div style={styles.noResults}>
+              {searchQuery ? "No campaigns match your search." : "No active campaigns."}
+            </div>
+          ) : (
+            <>
+              <div style={styles.list}>
+                {currentCampaigns.map(campaign => (
+                  <CampaignCard key={campaign.id} campaign={campaign}/>
+                ))}
+              </div>
+              
+              {totalPages > 1 && (
+                <div style={styles.pagination}>
+                  <button
+                    style={{
+                      ...styles.pageBtn,
+                      ...(currentPage === 0 ? styles.pageBtnDisabled : {}),
+                    }}
+                    onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                    disabled={currentPage === 0}
+                  >
+                    ← Prev
+                  </button>
+                  
+                  <span style={styles.pageInfo}>
+                    {currentPage + 1} / {totalPages}
+                  </span>
+                  
+                  <button
+                    style={{
+                      ...styles.pageBtn,
+                      ...(currentPage === totalPages - 1 ? styles.pageBtnDisabled : {}),
+                    }}
+                    onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                    disabled={currentPage === totalPages - 1}
+                  >
+                    Next →
+                  </button>
+                </div>
+              )}
+            </>
+          )}
+        </>
       )}
 
       {activeTab === "yours" && (
         <div>
-          {/* Organizer Total Stats Card */}
           <div style={styles.organizerStats}>
             <div style={styles.statTitle}>Total Raised Across All Campaigns</div>
             <div style={styles.statAmount}>${organizerTotal.toFixed(2)}</div>
@@ -153,9 +307,8 @@ const CampaignsView = () => {
           <div style={{ display: "flex", gap: 12, marginBottom: 16 }}>
             <button
               style={{
-                fontWeight: yourCampaignsStatus === "pending" ? 700 : 400,
-                borderBottom: yourCampaignsStatus === "pending" ? "2px solid #2563eb" : "none",
-                background: "none", border: "none", fontSize: "15px", cursor: "pointer",
+                ...styles.subTabButton,
+                ...(yourCampaignsStatus === "pending" ? styles.subTabButtonActive : {}),
               }}
               onClick={() => setYourCampaignsStatus("pending")}
             >
@@ -163,9 +316,8 @@ const CampaignsView = () => {
             </button>
             <button
               style={{
-                fontWeight: yourCampaignsStatus === "approved" ? 700 : 400,
-                borderBottom: yourCampaignsStatus === "approved" ? "2px solid #2563eb" : "none",
-                background: "none", border: "none", fontSize: "15px", cursor: "pointer",
+                ...styles.subTabButton,
+                ...(yourCampaignsStatus === "approved" ? styles.subTabButtonActive : {}),
               }}
               onClick={() => setYourCampaignsStatus("approved")}
             >
@@ -173,9 +325,8 @@ const CampaignsView = () => {
             </button>
             <button
               style={{
-                fontWeight: yourCampaignsStatus === "rejected" ? 700 : 400,
-                borderBottom: yourCampaignsStatus === "rejected" ? "2px solid #2563eb" : "none",
-                background: "none", border: "none", fontSize: "15px", cursor: "pointer",
+                ...styles.subTabButton,
+                ...(yourCampaignsStatus === "rejected" ? styles.subTabButtonActive : {}),
               }}
               onClick={() => setYourCampaignsStatus("rejected")}
             >
@@ -195,22 +346,57 @@ const CampaignsView = () => {
               }}
             />
           ) : (
-            <div style={styles.list}>
-              {(yourCampaignsStatus === "pending"
-                  ? pendingCampaigns
-                  : yourCampaignsStatus === "approved"
-                    ? approvedCampaigns
-                    : rejectedCampaigns
-              ).map(c => (
-                <CampaignCard
-                  key={c.id}
-                  campaign={c}
-                  editable={yourCampaignsStatus === "pending"}
-                  onEdit={setEditingCampaign}
-                  showDonations={true}
-                />
-              ))}
-            </div>
+            <>
+              {currentCampaigns.length === 0 ? (
+                <div style={styles.noResults}>
+                  {searchQuery ? "No campaigns match your search." : "No campaigns in this category."}
+                </div>
+              ) : (
+                <>
+                  <div style={styles.list}>
+                    {currentCampaigns.map(c => (
+                      <CampaignCard
+                        key={c.id}
+                        campaign={c}
+                        editable={yourCampaignsStatus === "pending"}
+                        onEdit={setEditingCampaign}
+                        showDonations={true}
+                      />
+                    ))}
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div style={styles.pagination}>
+                      <button
+                        style={{
+                          ...styles.pageBtn,
+                          ...(currentPage === 0 ? styles.pageBtnDisabled : {}),
+                        }}
+                        onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+                        disabled={currentPage === 0}
+                      >
+                        ← Prev
+                      </button>
+                      
+                      <span style={styles.pageInfo}>
+                        {currentPage + 1} / {totalPages}
+                      </span>
+                      
+                      <button
+                        style={{
+                          ...styles.pageBtn,
+                          ...(currentPage === totalPages - 1 ? styles.pageBtnDisabled : {}),
+                        }}
+                        onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+                        disabled={currentPage === totalPages - 1}
+                      >
+                        Next →
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </>
           )}
         </div>
       )}

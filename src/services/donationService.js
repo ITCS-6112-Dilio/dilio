@@ -2,13 +2,11 @@
 import {
   addDoc,
   collection,
-  deleteDoc,
   doc,
   getDocs,
   getFirestore,
   orderBy,
   query,
-  updateDoc,
   where,
   increment,
   runTransaction,

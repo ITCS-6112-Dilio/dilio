@@ -33,12 +33,14 @@ const StatsCard = ({ stats }) => {
       color: "#64748b",
       marginBottom: "8px",
       textTransform: "uppercase",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     value: {
       display: "block",
       fontSize: "18px",
       fontWeight: 700,
       color: "#2563eb",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
   };
 

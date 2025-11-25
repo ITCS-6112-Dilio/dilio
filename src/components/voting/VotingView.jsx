@@ -95,6 +95,7 @@ const VotingView = () => {
       fontSize: "18px",
       fontWeight: 600,
       margin: 0,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     info: {
       background: "#f8fafc",
@@ -107,18 +108,21 @@ const VotingView = () => {
       fontSize: "14px",
       color: "#64748b",
       marginBottom: "8px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     weekInfo: {
       fontSize: "13px",
       color: "#475569",
       marginTop: "8px",
       fontWeight: 500,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     totalVotes: {
       fontSize: "14px",
       fontWeight: 600,
       color: "#2563eb",
       marginTop: "8px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     options: {
       display: "flex",
@@ -160,6 +164,7 @@ const VotingView = () => {
       fontSize: "14px",
       fontWeight: 600,
       flex: 1,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     category: {
       fontSize: "10px",
@@ -169,17 +174,20 @@ const VotingView = () => {
       borderRadius: "4px",
       marginLeft: "8px",
       flexShrink: 0,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     campaignDesc: {
       fontSize: "12px",
       color: "#64748b",
       marginBottom: "8px",
       lineHeight: "1.4",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     voteCount: {
       fontSize: "12px",
       color: "#64748b",
       fontWeight: 500,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     historyToggle: {
       width: "100%",
@@ -193,6 +201,7 @@ const VotingView = () => {
       color: "#475569",
       marginBottom: "20px",
       textAlign: "center",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     historySection: {
       marginTop: "20px",
@@ -203,6 +212,7 @@ const VotingView = () => {
       fontWeight: 600,
       marginBottom: "12px",
       color: "#0f172a",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     historyCard: {
       background: "#f8fafc",
@@ -216,6 +226,7 @@ const VotingView = () => {
       fontWeight: 600,
       color: "#475569",
       marginBottom: "8px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     distributionItem: {
       display: "flex",
@@ -231,6 +242,7 @@ const VotingView = () => {
       fontSize: "12px",
       color: "#0f172a",
       flex: 1,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     distributionBar: {
       flex: 2,
@@ -251,6 +263,7 @@ const VotingView = () => {
       color: "#2563eb",
       minWidth: "50px",
       textAlign: "right",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
   };
 

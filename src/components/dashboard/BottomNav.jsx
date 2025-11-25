@@ -25,6 +25,7 @@ const BottomNav = ({ currentView, onNavigate }) => {
       cursor: "pointer",
       fontSize: "11px",
       transition: "background 0.2s",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     icon: {
       fontSize: "20px",

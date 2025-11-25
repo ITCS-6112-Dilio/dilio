@@ -132,6 +132,7 @@ const AdminView = ({ onBack }) => {
       fontSize: "18px",
       fontWeight: 600,
       margin: 0,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     tabs: {
       display: "flex",
@@ -148,6 +149,7 @@ const AdminView = ({ onBack }) => {
       fontSize: "14px",
       fontWeight: 500,
       color: "#64748b",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     activeTab: {
       color: "#2563eb",
@@ -164,16 +166,19 @@ const AdminView = ({ onBack }) => {
       fontSize: "15px",
       fontWeight: 600,
       marginBottom: "8px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     campaignDesc: {
       fontSize: "13px",
       color: "#64748b",
       marginBottom: "12px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     campaignMeta: {
       fontSize: "12px",
       color: "#64748b",
       marginBottom: "12px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     buttonGroup: {
       display: "flex",
@@ -189,6 +194,7 @@ const AdminView = ({ onBack }) => {
       cursor: "pointer",
       fontSize: "13px",
       fontWeight: 600,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     rejectBtn: {
       flex: 1,
@@ -200,6 +206,7 @@ const AdminView = ({ onBack }) => {
       cursor: "pointer",
       fontSize: "13px",
       fontWeight: 600,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     reportCard: {
       background: "#f8fafc",
@@ -212,6 +219,7 @@ const AdminView = ({ onBack }) => {
       textAlign: "center",
       color: "#64748b",
       padding: "20px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     roleCard: {
       background: "#f1f5f9",
@@ -224,12 +232,27 @@ const AdminView = ({ onBack }) => {
       fontSize: "15px",
       fontWeight: 600,
       marginBottom: "6px",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     roleDetails: {
       fontSize: "13px",
       color: "#475569",
       marginBottom: "10px",
       lineHeight: "1.5",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    },
+    backBtn: {
+      width: "100%",
+      padding: "10px",
+      borderRadius: "8px",
+      background: "#2563eb",
+      color: "white",
+      border: "none",
+      marginTop: "16px",
+      fontWeight: 600,
+      fontSize: "14px",
+      cursor: "pointer",
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
   };
 
@@ -468,7 +491,7 @@ const AdminView = ({ onBack }) => {
         </div>
       )}
 
-      <Button variant="secondary" onClick={onBack} style={{ marginTop: "20px" }}>
+      <Button variant="secondary" onClick={onBack} style={styles.backBtn}>
         Back to Dashboard
       </Button>
     </div>
