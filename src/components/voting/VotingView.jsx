@@ -1,6 +1,6 @@
 ﻿// src/components/voting/VotingView.jsx
 import { useState, useEffect } from "react";
-import { getCurrentVotingSession, submitVote as submitVoteToDb, hasUserVoted, getPastVotingSessions } from "../../services/votingService";
+import { getCurrentVotingSession, submitVote as submitVoteToDb, getUserVote, getPastVotingSessions } from "../../services/votingService";
 import Button from "../Button";
 import { useUser } from "../../context/UserContext";
 
@@ -13,6 +13,7 @@ const VotingView = () => {
   const [submitting, setSubmitting] = useState(false);
   const [pastSessions, setPastSessions] = useState([]);
   const [showHistory, setShowHistory] = useState(false);
+  const [isUpdatingVote, setIsUpdatingVote] = useState(false);
 
   useEffect(() => {
     loadVotingSession();
@@ -24,10 +25,16 @@ const VotingView = () => {
     try {
       const sessionData = await getCurrentVotingSession();
       setSession(sessionData);
-      
-      // Check if user has already voted
-      const voted = await hasUserVoted(user.uid, sessionData.id);
-      setHasVoted(voted);
+
+      // Check if user has already voted and get their vote
+      const userVote = await getUserVote(user.uid, sessionData.id);
+      if (userVote) {
+        setHasVoted(true);
+        setSelectedCampaign(userVote.campaignId);
+      } else {
+        setHasVoted(false);
+        setSelectedCampaign(null);
+      }
     } catch (error) {
       console.error("Error loading voting session:", error);
     } finally {
@@ -54,30 +61,36 @@ const VotingView = () => {
     try {
       await submitVoteToDb(user.uid, selectedCampaign, session.id);
       setHasVoted(true);
-      alert("✅ Vote Submitted! Thank you for participating!");
-      
+      setIsUpdatingVote(false);
+      alert(hasVoted ? "✅ Vote Updated!" : "✅ Vote Submitted! Thank you for participating!");
+
       // Reload session to get updated vote counts
       await loadVotingSession();
     } catch (error) {
-      if (error.message.includes("already voted")) {
-        setHasVoted(true);
-        alert("You have already voted in this session");
-      } else {
-        alert("Error submitting vote: " + error.message);
-      }
+      alert("Error submitting vote: " + error.message);
     } finally {
       setSubmitting(false);
     }
   };
 
+  const handleChangeVote = () => {
+    setIsUpdatingVote(true);
+  };
+
+  const handleCancelChange = () => {
+    setIsUpdatingVote(false);
+    // Reset to original vote
+    loadVotingSession();
+  };
+
   const formatDateRange = (startDate, endDate) => {
     const start = new Date(startDate);
     const end = new Date(endDate);
-    
+
     const options = { month: 'short', day: 'numeric' };
     const startStr = start.toLocaleDateString('en-US', options);
     const endStr = end.toLocaleDateString('en-US', options);
-    
+
     return `${startStr} - ${endStr}`;
   };
 
@@ -189,6 +202,36 @@ const VotingView = () => {
       fontWeight: 500,
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
+    buttonGroup: {
+      display: "flex",
+      gap: "10px",
+      marginBottom: "20px",
+    },
+    secondaryButton: {
+      flex: 1,
+      padding: "12px",
+      background: "#ef4444",
+      color: "white",
+      border: "none",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontWeight: 500,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    },
+    changeVoteButton: {
+      width: "100%",
+      padding: "12px",
+      background: "#2563eb",
+      color: "white",
+      border: "none",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontSize: "14px",
+      fontWeight: 600,
+      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      marginBottom: "20px",
+    },
     historyToggle: {
       width: "100%",
       padding: "10px",
@@ -295,7 +338,8 @@ const VotingView = () => {
     );
   }
 
-  if (hasVoted) {
+  // Show locked view if voted and not updating
+  if (hasVoted && !isUpdatingVote) {
     return (
       <div style={styles.container}>
         <div style={styles.header}>
@@ -303,7 +347,7 @@ const VotingView = () => {
         </div>
         <div style={styles.info}>
           <p style={styles.infoText}>
-            ✅ You have already voted in this session!
+            ✅ You have voted in this session!
           </p>
           <p style={styles.weekInfo}>
             {formatDateRange(session.startDate, session.endDate)}
@@ -311,11 +355,12 @@ const VotingView = () => {
           <p style={styles.totalVotes}>
             Total Votes: {session.totalVotes || 0}
           </p>
-          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "12px" }}>
-            Check back next week to vote again.
-          </p>
         </div>
-        
+
+        <button style={styles.changeVoteButton} onClick={handleChangeVote}>
+          Change My Vote
+        </button>
+
         <div style={styles.options}>
           <p style={{ fontSize: "13px", color: "#64748b", marginBottom: "8px" }}>
             Current standings:
@@ -323,14 +368,22 @@ const VotingView = () => {
           {session.campaigns
             .sort((a, b) => (b.votes || 0) - (a.votes || 0))
             .map((campaign) => {
-              const percentage = session.totalVotes > 0 
+              const percentage = session.totalVotes > 0
                 ? ((campaign.votes || 0) / session.totalVotes * 100).toFixed(1)
                 : 0;
+              const isUserVote = campaign.id === selectedCampaign;
               return (
                 <div key={campaign.id} style={styles.option}>
-                  <div style={{ ...styles.label, ...styles.labelDisabled }}>
+                  <div style={{
+                    ...styles.label,
+                    ...styles.labelDisabled,
+                    ...(isUserVote ? { borderColor: "#16a34a", background: "#f0fdf4" } : {})
+                  }}>
                     <div style={styles.campaignHeader}>
-                      <div style={styles.campaignName}>{campaign.name}</div>
+                      <div style={styles.campaignName}>
+                        {campaign.name}
+                        {isUserVote && " ✓"}
+                      </div>
                       <span style={styles.category}>{campaign.category}</span>
                     </div>
                     <div style={styles.campaignDesc}>{campaign.description}</div>
@@ -345,7 +398,7 @@ const VotingView = () => {
 
         {pastSessions.length > 0 && (
           <>
-            <button 
+            <button
               style={styles.historyToggle}
               onClick={() => setShowHistory(!showHistory)}
             >
@@ -368,8 +421,8 @@ const VotingView = () => {
                           : 0;
                         const isLast = idx === pastSession.campaigns.length - 1;
                         return (
-                          <div 
-                            key={campaign.id} 
+                          <div
+                            key={campaign.id}
                             style={isLast ? {...styles.distributionItem, ...styles.distributionItemLast} : styles.distributionItem}
                           >
                             <div style={styles.distributionName}>{campaign.name}</div>
@@ -390,15 +443,16 @@ const VotingView = () => {
     );
   }
 
+  // Show voting/updating view
   return (
     <div style={styles.container}>
       <div style={styles.header}>
         <h2 style={styles.title}>Weekly Voting</h2>
       </div>
-      
+
       <div style={styles.info}>
         <p style={styles.infoText}>
-          Vote for which campaign should receive this week's pooled donations
+          {isUpdatingVote ? "Update your vote for this week's pooled donations" : "Vote for which campaign should receive this week's pooled donations"}
         </p>
         <p style={styles.weekInfo}>
           {formatDateRange(session.startDate, session.endDate)}
@@ -441,13 +495,24 @@ const VotingView = () => {
         ))}
       </div>
 
-      <Button onClick={handleSubmitVote} disabled={submitting || !selectedCampaign}>
-        {submitting ? "Submitting..." : "Submit Vote"}
-      </Button>
+      {isUpdatingVote ? (
+        <div style={styles.buttonGroup}>
+          <button style={styles.secondaryButton} onClick={handleCancelChange}>
+            Cancel
+          </button>
+          <Button onClick={handleSubmitVote} disabled={submitting || !selectedCampaign}>
+            {submitting ? "Updating..." : "Update Vote"}
+          </Button>
+        </div>
+      ) : (
+        <Button onClick={handleSubmitVote} disabled={submitting || !selectedCampaign}>
+          {submitting ? "Submitting..." : "Submit Vote"}
+        </Button>
+      )}
 
       {pastSessions.length > 0 && (
         <>
-          <button 
+          <button
             style={styles.historyToggle}
             onClick={() => setShowHistory(!showHistory)}
           >
@@ -470,8 +535,8 @@ const VotingView = () => {
                         : 0;
                       const isLast = idx === pastSession.campaigns.length - 1;
                       return (
-                        <div 
-                          key={campaign.id} 
+                        <div
+                          key={campaign.id}
                           style={isLast ? {...styles.distributionItem, ...styles.distributionItemLast} : styles.distributionItem}
                         >
                           <div style={styles.distributionName}>{campaign.name}</div>
