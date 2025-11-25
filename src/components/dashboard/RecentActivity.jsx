@@ -137,7 +137,10 @@ const RecentActivity = ({ donations = [], onDelete, onEdit }) => {
       ) : (
         <>
           <div style={styles.list}>
-            {currentDonations.map((donation) => (
+            {currentDonations.map((donation) => {
+              console.log(donation)
+
+              return (
               <div key={donation.id} style={styles.item}>
                 <div style={styles.icon}>💰</div>
                 <div style={styles.details}>
@@ -146,11 +149,25 @@ const RecentActivity = ({ donations = [], onDelete, onEdit }) => {
                 </div>
                 <div style={styles.amount}>${donation.amount.toFixed(2)}</div>
                 <div style={styles.actions}>
-                  <button style={styles.actionBtn} onClick={() => onEdit(donation)}>Edit</button>
-                  <button style={{...styles.actionBtn, ...styles.deleteBtn}} onClick={() => onDelete(donation.id)}>Delete</button>
+                  {donation.canEdit && (
+                    <button
+                      style={styles.actionBtn}
+                      onClick={() => onEdit(donation)}
+                    >
+                      Edit
+                    </button>
+                  )}
+                  {donation.canDelete && (
+                    <button
+                      style={{ ...styles.actionBtn, ...styles.deleteBtn }}
+                      onClick={() => onDelete(donation.id)}
+                    >
+                      Delete
+                    </button>
+                  )}
                 </div>
               </div>
-            ))}
+            )})}
           </div>
           
           {totalPages > 1 && (
