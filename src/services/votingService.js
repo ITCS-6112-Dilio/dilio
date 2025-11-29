@@ -14,8 +14,8 @@ import {
   limit,
   setDoc,
   deleteDoc,
-} from "firebase/firestore";
-import { db } from "./firebase";
+} from 'firebase/firestore';
+import { db } from './firebase';
 
 /**
  * Get a voting session by its document ID
@@ -24,7 +24,7 @@ import { db } from "./firebase";
  */
 export const getVotingSessionById = async (sessionId) => {
   try {
-    const sessionRef = doc(db, "votingSessions", sessionId);
+    const sessionRef = doc(db, 'votingSessions', sessionId);
     const sessionSnap = await getDoc(sessionRef);
 
     if (!sessionSnap.exists()) {
@@ -33,7 +33,7 @@ export const getVotingSessionById = async (sessionId) => {
 
     return { id: sessionSnap.id, ...sessionSnap.data() };
   } catch (error) {
-    console.error("Error getting voting session by id:", error);
+    console.error('Error getting voting session by id:', error);
     throw error;
   }
 };
@@ -48,7 +48,7 @@ export const getCurrentVotingSession = async () => {
     const weekId = getWeekIdentifier();
 
     // Check if session already exists
-    const sessionRef = doc(db, "votingSessions", weekId);
+    const sessionRef = doc(db, 'votingSessions', weekId);
     const sessionSnap = await getDoc(sessionRef);
 
     if (sessionSnap.exists()) {
@@ -64,7 +64,7 @@ export const getCurrentVotingSession = async () => {
       weekId,
       startDate: startDate.getTime(),
       endDate: endDate.getTime(),
-      campaigns: campaigns.map(c => ({
+      campaigns: campaigns.map((c) => ({
         id: c.id,
         name: c.name,
         description: c.description,
@@ -79,7 +79,7 @@ export const getCurrentVotingSession = async () => {
     await setDoc(sessionRef, newSession);
     return { id: weekId, ...newSession };
   } catch (error) {
-    console.error("Error getting voting session:", error);
+    console.error('Error getting voting session:', error);
     throw error;
   }
 };
@@ -94,18 +94,18 @@ export const getPastVotingSessions = async (count = 4) => {
     const currentWeekId = getWeekIdentifier();
 
     const sessionsQuery = query(
-      collection(db, "votingSessions"),
-      orderBy("createdAt", "desc"),
+      collection(db, 'votingSessions'),
+      orderBy('createdAt', 'desc'),
       limit(count + 1)
     );
     const snapshot = await getDocs(sessionsQuery);
 
     return snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
-      .filter(session => session.id !== currentWeekId)
+      .map((doc) => ({ id: doc.id, ...doc.data() }))
+      .filter((session) => session.id !== currentWeekId)
       .slice(0, count);
   } catch (error) {
-    console.error("Error getting past sessions:", error);
+    console.error('Error getting past sessions:', error);
     return [];
   }
 };
@@ -119,11 +119,11 @@ const getRandomCampaigns = async (count = 5) => {
   try {
     // Get all approved campaigns
     const campaignsQuery = query(
-      collection(db, "campaigns"),
-      where("status", "==", "approved")
+      collection(db, 'campaigns'),
+      where('status', '==', 'approved')
     );
     const snapshot = await getDocs(campaignsQuery);
-    let allCampaigns = snapshot.docs.map(doc => ({
+    let allCampaigns = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -133,7 +133,7 @@ const getRandomCampaigns = async (count = 5) => {
 
     // Filter out recently used campaigns if we have enough options
     let availableCampaigns = allCampaigns.filter(
-      c => !recentlyUsed.includes(c.id)
+      (c) => !recentlyUsed.includes(c.id)
     );
 
     // If not enough available campaigns, use all campaigns
@@ -145,7 +145,7 @@ const getRandomCampaigns = async (count = 5) => {
     const shuffled = availableCampaigns.sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(count, shuffled.length));
   } catch (error) {
-    console.error("Error getting random campaigns:", error);
+    console.error('Error getting random campaigns:', error);
     return [];
   }
 };
@@ -158,21 +158,21 @@ const getRandomCampaigns = async (count = 5) => {
 const getRecentlyUsedCampaigns = async (weeksBack = 3) => {
   try {
     const sessionsQuery = query(
-      collection(db, "votingSessions"),
-      orderBy("createdAt", "desc"),
+      collection(db, 'votingSessions'),
+      orderBy('createdAt', 'desc'),
       limit(weeksBack)
     );
     const snapshot = await getDocs(sessionsQuery);
 
     const usedIds = new Set();
-    snapshot.docs.forEach(doc => {
+    snapshot.docs.forEach((doc) => {
       const campaigns = doc.data().campaigns || [];
-      campaigns.forEach(c => usedIds.add(c.id));
+      campaigns.forEach((c) => usedIds.add(c.id));
     });
 
     return Array.from(usedIds);
   } catch (error) {
-    console.error("Error getting recently used campaigns:", error);
+    console.error('Error getting recently used campaigns:', error);
     return [];
   }
 };
@@ -187,9 +187,9 @@ export const submitVote = async (userId, campaignId, sessionId) => {
   try {
     // Check if user already voted
     const votesQuery = query(
-      collection(db, "votes"),
-      where("userId", "==", userId),
-      where("sessionId", "==", sessionId)
+      collection(db, 'votes'),
+      where('userId', '==', userId),
+      where('sessionId', '==', sessionId)
     );
     const existingVotes = await getDocs(votesQuery);
 
@@ -208,11 +208,11 @@ export const submitVote = async (userId, campaignId, sessionId) => {
       }
 
       // Delete the old vote document
-      await deleteDoc(doc(db, "votes", voteDocId));
+      await deleteDoc(doc(db, 'votes', voteDocId));
     }
 
     // Add new vote
-    await addDoc(collection(db, "votes"), {
+    await addDoc(collection(db, 'votes'), {
       userId,
       campaignId,
       sessionId,
@@ -220,12 +220,12 @@ export const submitVote = async (userId, campaignId, sessionId) => {
     });
 
     // Update campaign vote counts in session
-    const sessionRef = doc(db, "votingSessions", sessionId);
+    const sessionRef = doc(db, 'votingSessions', sessionId);
     const sessionSnap = await getDoc(sessionRef);
 
     if (sessionSnap.exists()) {
       const sessionData = sessionSnap.data();
-      const updatedCampaigns = sessionData.campaigns.map(c => {
+      const updatedCampaigns = sessionData.campaigns.map((c) => {
         if (c.id === campaignId) {
           // Increment vote for new campaign
           return { ...c, votes: (c.votes || 0) + 1 };
@@ -250,7 +250,7 @@ export const submitVote = async (userId, campaignId, sessionId) => {
 
     return true;
   } catch (error) {
-    console.error("Error submitting vote:", error);
+    console.error('Error submitting vote:', error);
     throw error;
   }
 };
@@ -264,9 +264,9 @@ export const submitVote = async (userId, campaignId, sessionId) => {
 export const getUserVote = async (userId, sessionId) => {
   try {
     const votesQuery = query(
-      collection(db, "votes"),
-      where("userId", "==", userId),
-      where("sessionId", "==", sessionId)
+      collection(db, 'votes'),
+      where('userId', '==', userId),
+      where('sessionId', '==', sessionId)
     );
     const snapshot = await getDocs(votesQuery);
 
@@ -279,7 +279,7 @@ export const getUserVote = async (userId, sessionId) => {
       ...snapshot.docs[0].data(),
     };
   } catch (error) {
-    console.error("Error getting user vote:", error);
+    console.error('Error getting user vote:', error);
     return null;
   }
 };
@@ -295,7 +295,7 @@ export const hasUserVoted = async (userId, sessionId) => {
     const vote = await getUserVote(userId, sessionId);
     return vote !== null;
   } catch (error) {
-    console.error("Error checking vote status:", error);
+    console.error('Error checking vote status:', error);
     return false;
   }
 };

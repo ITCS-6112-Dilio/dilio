@@ -1,27 +1,27 @@
 ﻿// src/components/campaigns/CreateCampaignView.jsx
-import { useState } from "react";
-import Input from "../Input";
-import Button from "../Button";
-import { createCampaign, updateCampaign } from "../../services/campaignService";
+import { useState } from 'react';
+import Input from '../Input';
+import Button from '../Button';
+import { createCampaign, updateCampaign } from '../../services/campaignService';
 
 const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
-  const [ title, setTitle ] = useState(campaign?.name || "");
-  const [ description, setDescription ] = useState(campaign?.description || "");
-  const [ goal, setGoal ] = useState(campaign?.goal || "");
-  const [ category, setCategory ] = useState(campaign?.category || "Community");
-  const [ loading, setLoading ] = useState(false);
+  const [title, setTitle] = useState(campaign?.name || '');
+  const [description, setDescription] = useState(campaign?.description || '');
+  const [goal, setGoal] = useState(campaign?.goal || '');
+  const [category, setCategory] = useState(campaign?.category || 'Community');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
 
     if (!title.trim() || !description.trim() || !goal) {
-      alert("Please fill in all fields");
+      alert('Please fill in all fields');
       return;
     }
 
     const goalAmount = parseFloat(goal);
     if (isNaN(goalAmount) || goalAmount <= 0) {
-      alert("Please enter a valid goal amount");
+      alert('Please enter a valid goal amount');
       return;
     }
 
@@ -34,7 +34,7 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
           goal: goalAmount,
           category,
         });
-        alert("Campaign updated!");
+        alert('Campaign updated!');
         onSave && onSave();
       } else {
         await createCampaign({
@@ -44,11 +44,11 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
           category,
           organizerId: userId,
         });
-        alert("Campaign submitted for admin approval!");
+        alert('Campaign submitted for admin approval!');
       }
       onBack && onBack();
     } catch (error) {
-      alert("Error creating/updating campaign: " + error.message);
+      alert('Error creating/updating campaign: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -56,53 +56,57 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
 
   const styles = {
     container: {
-      padding: "20px",
-      paddingBottom: "100px",
-      height: "520px",
-      overflowY: "auto",
+      padding: '20px',
+      paddingBottom: '100px',
+      height: '520px',
+      overflowY: 'auto',
     },
     header: {
-      marginBottom: "20px",
+      marginBottom: '20px',
     },
     title: {
-      fontSize: "18px",
+      fontSize: '18px',
       fontWeight: 600,
       margin: 0,
-      marginBottom: "8px",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      marginBottom: '8px',
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     subtitle: {
-      fontSize: "13px",
-      color: "#64748b",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      fontSize: '13px',
+      color: '#64748b',
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     form: {
-      display: "flex",
-      flexDirection: "column",
-      gap: "12px",
+      display: 'flex',
+      flexDirection: 'column',
+      gap: '12px',
     },
     textarea: {
-      width: "100%",
-      minHeight: "80px",
-      padding: "8px",
+      width: '100%',
+      minHeight: '80px',
+      padding: '8px',
       borderRadius: 4,
-      border: "1px solid #ccc",
-      fontSize: "14px",
-      boxSizing: "border-box",
-      resize: "vertical",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      border: '1px solid #ccc',
+      fontSize: '14px',
+      boxSizing: 'border-box',
+      resize: 'vertical',
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     select: {
-      width: "100%",
-      padding: "8px",
+      width: '100%',
+      padding: '8px',
       borderRadius: 4,
-      border: "1px solid #ccc",
-      fontSize: "14px",
-      boxSizing: "border-box",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      border: '1px solid #ccc',
+      fontSize: '14px',
+      boxSizing: 'border-box',
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     backBtn: {
-      marginTop: "10px",
+      marginTop: '10px',
     },
   };
 
@@ -110,12 +114,12 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
     <div style={styles.container}>
       <div style={styles.header}>
         <h2 style={styles.title}>
-          {campaign ? "Edit Campaign" : "Create Campaign"}
+          {campaign ? 'Edit Campaign' : 'Create Campaign'}
         </h2>
         <p style={styles.subtitle}>
           {campaign
-            ? "Update and refine your pending campaign before admin approval."
-            : "Submit a new fundraising campaign for approval."}
+            ? 'Update and refine your pending campaign before admin approval.'
+            : 'Submit a new fundraising campaign for approval.'}
         </p>
       </div>
 
@@ -129,8 +133,15 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
         />
 
         <div>
-          <label style={{ display: "block", marginBottom: "4px", fontWeight: 500, fontSize: "14px" }}>
-            Description <span style={{ color: "#b00" }}>*</span>
+          <label
+            style={{
+              display: 'block',
+              marginBottom: '4px',
+              fontWeight: 500,
+              fontSize: '14px',
+            }}
+          >
+            Description <span style={{ color: '#b00' }}>*</span>
           </label>
           <textarea
             style={styles.textarea}
@@ -151,8 +162,15 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
         />
 
         <div>
-          <label style={{ display: "block", marginBottom: "4px", fontWeight: 500, fontSize: "14px" }}>
-            Category <span style={{ color: "#b00" }}>*</span>
+          <label
+            style={{
+              display: 'block',
+              marginBottom: '4px',
+              fontWeight: 500,
+              fontSize: '14px',
+            }}
+          >
+            Category <span style={{ color: '#b00' }}>*</span>
           </label>
           <select
             style={styles.select}
@@ -170,8 +188,12 @@ const CreateCampaignView = ({ onBack, userId, campaign, onSave }) => {
 
         <Button type="submit" disabled={loading}>
           {loading
-            ? (campaign ? "Saving..." : "Submitting...")
-            : (campaign ? "Save Changes" : "Submit Campaign")}
+            ? campaign
+              ? 'Saving...'
+              : 'Submitting...'
+            : campaign
+              ? 'Save Changes'
+              : 'Submit Campaign'}
         </Button>
 
         <Button variant="secondary" onClick={onBack} style={styles.backBtn}>

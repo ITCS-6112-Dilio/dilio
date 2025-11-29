@@ -1,34 +1,37 @@
 const inputBaseStyle = {
-  width: "100%",
-  margin: "8px 0",
-  padding: "8px",
+  width: '100%',
+  margin: '8px 0',
+  padding: '8px',
   borderRadius: 4,
-  border: "1px solid #ccc",
-  fontSize: "1rem",
-  boxSizing: "border-box",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  border: '1px solid #ccc',
+  fontSize: '1rem',
+  boxSizing: 'border-box',
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 };
 
 const errorStyle = {
-  color: "#db4437",
-  fontSize: "0.92em",
-  margin: "4px 0 0 0",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  color: '#db4437',
+  fontSize: '0.92em',
+  margin: '4px 0 0 0',
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 };
 
 const labelStyle = {
-  display: "block",
+  display: 'block',
   marginBottom: 4,
   fontWeight: 500,
-  fontSize: "1em",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  fontSize: '1em',
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 };
 
 const Input = ({
   label,
   id,
   name,
-  type = "text",
+  type = 'text',
   placeholder,
   value,
   onChange,
@@ -39,11 +42,11 @@ const Input = ({
 }) => {
   const inputId = id || name;
   return (
-    <div style={{ margin: "10px 0" }}>
+    <div style={{ margin: '10px 0' }}>
       {label && (
         <label htmlFor={inputId} style={labelStyle}>
           {label}
-          {required && <span style={{ color: "#b00" }}> *</span>}
+          {required && <span style={{ color: '#b00' }}> *</span>}
         </label>
       )}
       <input
@@ -60,8 +63,8 @@ const Input = ({
         autoFocus={autoFocus}
         style={{
           ...inputBaseStyle,
-          borderColor: error ? "#db4437" : "#ccc",
-          outline: error ? "#db4437 solid 1px" : undefined,
+          borderColor: error ? '#db4437' : '#ccc',
+          outline: error ? '#db4437 solid 1px' : undefined,
         }}
         {...props}
       />

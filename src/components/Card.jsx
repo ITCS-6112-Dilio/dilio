@@ -1,15 +1,16 @@
 // src/components/Card.jsx
-import React from "react";
+import React from 'react';
 
 const defaultStyle = {
   maxWidth: 340,
   minWidth: 200,
-  margin: "2rem auto",
-  padding: "1rem",
+  margin: '2rem auto',
+  padding: '1rem',
   borderRadius: 8,
-  boxShadow: "0 2px 8px rgba(0,0,0,0.12)",
-  background: "#fff",
-  fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+  boxShadow: '0 2px 8px rgba(0,0,0,0.12)',
+  background: '#fff',
+  fontFamily:
+    "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
 };
 
 const Card = ({ children, style = {} }) => (

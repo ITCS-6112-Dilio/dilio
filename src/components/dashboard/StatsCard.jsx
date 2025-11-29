@@ -1,46 +1,43 @@
 ﻿// src/components/dashboard/StatsCard.jsx
 const StatsCard = ({ stats }) => {
-
   const safeTotal = Number.isFinite(stats.totalDonated)
     ? stats.totalDonated
     : 0;
 
-  const safePoints = Number.isFinite(stats.points)
-    ? stats.points
-    : 0;
+  const safePoints = Number.isFinite(stats.points) ? stats.points : 0;
 
-  const safeStreak = Number.isFinite(stats.streak)
-    ? stats.streak
-    : 0;
+  const safeStreak = Number.isFinite(stats.streak) ? stats.streak : 0;
 
   const styles = {
     grid: {
-      display: "grid",
-      gridTemplateColumns: "repeat(3, 1fr)",
-      gap: "12px",
-      marginBottom: "20px",
+      display: 'grid',
+      gridTemplateColumns: 'repeat(3, 1fr)',
+      gap: '12px',
+      marginBottom: '20px',
     },
     card: {
-      background: "#f8fafc",
-      padding: "16px",
-      borderRadius: "8px",
-      textAlign: "center",
-      border: "1px solid #e2e8f0",
+      background: '#f8fafc',
+      padding: '16px',
+      borderRadius: '8px',
+      textAlign: 'center',
+      border: '1px solid #e2e8f0',
     },
     label: {
-      display: "block",
-      fontSize: "11px",
-      color: "#64748b",
-      marginBottom: "8px",
-      textTransform: "uppercase",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      display: 'block',
+      fontSize: '11px',
+      color: '#64748b',
+      marginBottom: '8px',
+      textTransform: 'uppercase',
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
     value: {
-      display: "block",
-      fontSize: "18px",
+      display: 'block',
+      fontSize: '18px',
       fontWeight: 700,
-      color: "#2563eb",
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      color: '#2563eb',
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
   };
 

@@ -1,42 +1,42 @@
 // src/components/auth/Login.jsx
-import { useState } from "react";
-import { auth } from "../../services/firebase";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import Card from "../Card";
-import Input from "../Input";
-import Button from "../Button";
-import { Link, useNavigate } from "react-router-dom";
+import { useState } from 'react';
+import { auth } from '../../services/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import Card from '../Card';
+import Input from '../Input';
+import Button from '../Button';
+import { Link, useNavigate } from 'react-router-dom';
 
 const Login = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
 
   // Individual error states for real-time validation
-  const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
 
-  const [generalError, setGeneralError] = useState("");
-  const [infoMessage, setInfoMessage] = useState("");
+  const [generalError, setGeneralError] = useState('');
+  const [infoMessage, setInfoMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const navigate = useNavigate();
 
   const validateEmail = (value) => {
-    if (!value.trim().endsWith(".edu")) {
-      setEmailError("Only .edu emails are allowed.");
+    if (!value.trim().endsWith('.edu')) {
+      setEmailError('Only .edu emails are allowed.');
       return false;
     } else {
-      setEmailError("");
+      setEmailError('');
       return true;
     }
   };
 
   const validatePassword = (value) => {
     if (value.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
+      setPasswordError('Password must be at least 6 characters.');
       return false;
     } else {
-      setPasswordError("");
+      setPasswordError('');
       return true;
     }
   };
@@ -55,24 +55,24 @@ const Login = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setGeneralError("");
-    setInfoMessage("");
+    setGeneralError('');
+    setInfoMessage('');
     const isEmailValid = validateEmail(email);
     const isPasswordValid = validatePassword(password);
     if (!isEmailValid || !isPasswordValid) {
-      setGeneralError("Please fix the errors above before submitting.");
+      setGeneralError('Please fix the errors above before submitting.');
       return;
     }
     setLoading(true);
     try {
       await signInWithEmailAndPassword(auth, email, password);
 
-      setInfoMessage("Login successful! Redirecting...");
-      setEmail("");
-      setPassword("");
-      navigate("/dashboard");
+      setInfoMessage('Login successful! Redirecting...');
+      setEmail('');
+      setPassword('');
+      navigate('/dashboard');
     } catch (err) {
-      setGeneralError("Login failed: " + err.message);
+      setGeneralError('Login failed: ' + err.message);
     }
     setLoading(false);
   };
@@ -84,20 +84,20 @@ const Login = () => {
     <Card>
       <h2
         style={{
-          fontSize: "1.25rem",
-          marginBottom: "1rem",
-          textAlign: "center",
+          fontSize: '1.25rem',
+          marginBottom: '1rem',
+          textAlign: 'center',
         }}
       >
         Log In
       </h2>
       {generalError && (
-        <p style={{ color: "red", marginBottom: 8 }} role="alert">
+        <p style={{ color: 'red', marginBottom: 8 }} role="alert">
           {generalError}
         </p>
       )}
       {infoMessage && (
-        <p style={{ color: "green", marginBottom: 8 }}>{infoMessage}</p>
+        <p style={{ color: 'green', marginBottom: 8 }}>{infoMessage}</p>
       )}
       <form onSubmit={handleSubmit} noValidate>
         <Input
@@ -122,10 +122,10 @@ const Login = () => {
           error={passwordError}
         />
         <Button type="submit" disabled={isSubmitDisabled}>
-          {loading ? "Logging in..." : "Log In"}
+          {loading ? 'Logging in...' : 'Log In'}
         </Button>
       </form>
-      <div style={{ textAlign: "center", marginTop: 12 }}>
+      <div style={{ textAlign: 'center', marginTop: 12 }}>
         Need an account? <Link to="/signup">Sign Up</Link>
       </div>
     </Card>

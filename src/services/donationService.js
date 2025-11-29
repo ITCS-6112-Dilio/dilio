@@ -10,8 +10,8 @@ import {
   where,
   increment,
   runTransaction,
-} from "firebase/firestore";
-import app from "./firebase";
+} from 'firebase/firestore';
+import app from './firebase';
 
 const db = getFirestore(app);
 
@@ -20,11 +20,11 @@ export const saveDonation = async (donation) => {
   try {
     // Round amount to 2 decimal places
     const roundedAmount = Math.round(donation.amount * 100) / 100;
-    
+
     // Use a transaction to ensure atomicity
     const donationId = await runTransaction(db, async (transaction) => {
       // Add the donation with rounded amount
-      const donationRef = doc(collection(db, "donations"));
+      const donationRef = doc(collection(db, 'donations'));
       transaction.set(donationRef, {
         ...donation,
         amount: roundedAmount,
@@ -32,8 +32,8 @@ export const saveDonation = async (donation) => {
       });
 
       // Update campaign raised amount if donation is to a specific campaign
-      if (donation.campaignId && donation.campaignId !== "general") {
-        const campaignRef = doc(db, "campaigns", donation.campaignId);
+      if (donation.campaignId && donation.campaignId !== 'general') {
+        const campaignRef = doc(db, 'campaigns', donation.campaignId);
         transaction.update(campaignRef, {
           raised: increment(roundedAmount),
         });
@@ -44,7 +44,7 @@ export const saveDonation = async (donation) => {
 
     return donationId;
   } catch (error) {
-    console.error("Error saving donation:", error);
+    console.error('Error saving donation:', error);
     throw error;
   }
 };
@@ -52,17 +52,17 @@ export const saveDonation = async (donation) => {
 export const getDonations = async (userId) => {
   try {
     const q = query(
-      collection(db, "donations"),
-      where("userId", "==", userId),
-      orderBy("timestamp", "desc"),
+      collection(db, 'donations'),
+      where('userId', '==', userId),
+      orderBy('timestamp', 'desc')
     );
     const querySnapshot = await getDocs(q);
-    return querySnapshot.docs.map(doc => ({
+    return querySnapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
   } catch (error) {
-    console.error("Error getting donations:", error);
+    console.error('Error getting donations:', error);
     // Do NOT return []
     throw error;
   }
@@ -72,11 +72,11 @@ export const deleteDonation = async (donationId) => {
   try {
     // Use transaction to ensure we also decrement campaign raised amount
     await runTransaction(db, async (transaction) => {
-      const donationRef = doc(db, "donations", donationId);
+      const donationRef = doc(db, 'donations', donationId);
       const donationSnap = await transaction.get(donationRef);
-      
+
       if (!donationSnap.exists()) {
-        throw new Error("Donation not found");
+        throw new Error('Donation not found');
       }
 
       const donationData = donationSnap.data();
@@ -86,15 +86,15 @@ export const deleteDonation = async (donationId) => {
       transaction.delete(donationRef);
 
       // Decrement campaign raised amount if it was to a specific campaign
-      if (donationData.campaignId && donationData.campaignId !== "general") {
-        const campaignRef = doc(db, "campaigns", donationData.campaignId);
+      if (donationData.campaignId && donationData.campaignId !== 'general') {
+        const campaignRef = doc(db, 'campaigns', donationData.campaignId);
         transaction.update(campaignRef, {
           raised: increment(-roundedAmount),
         });
       }
     });
   } catch (error) {
-    console.error("Error deleting donation:", error);
+    console.error('Error deleting donation:', error);
     throw error;
   }
 };
@@ -105,14 +105,14 @@ export const updateDonation = async (donationId, updates) => {
     if (updates.amount !== undefined) {
       updates.amount = Math.round(updates.amount * 100) / 100;
     }
-    
+
     // Use transaction to handle amount changes
     await runTransaction(db, async (transaction) => {
-      const donationRef = doc(db, "donations", donationId);
+      const donationRef = doc(db, 'donations', donationId);
       const donationSnap = await transaction.get(donationRef);
-      
+
       if (!donationSnap.exists()) {
-        throw new Error("Donation not found");
+        throw new Error('Donation not found');
       }
 
       const donationData = donationSnap.data();
@@ -123,8 +123,12 @@ export const updateDonation = async (donationId, updates) => {
       transaction.update(donationRef, updates);
 
       // Update campaign raised amount if it was to a specific campaign and amount changed
-      if (donationData.campaignId && donationData.campaignId !== "general" && newAmount !== oldAmount) {
-        const campaignRef = doc(db, "campaigns", donationData.campaignId);
+      if (
+        donationData.campaignId &&
+        donationData.campaignId !== 'general' &&
+        newAmount !== oldAmount
+      ) {
+        const campaignRef = doc(db, 'campaigns', donationData.campaignId);
         const difference = Math.round((newAmount - oldAmount) * 100) / 100;
         transaction.update(campaignRef, {
           raised: increment(difference),
@@ -132,23 +136,23 @@ export const updateDonation = async (donationId, updates) => {
       }
     });
   } catch (error) {
-    console.error("Error updating donation:", error);
+    console.error('Error updating donation:', error);
     throw error;
   }
 };
 
 export const calculateStats = (donations = []) => {
   // Normalize data (amount as number, timestamp as ms)
-  const normalized = donations.map(d => {
+  const normalized = donations.map((d) => {
     const amount = Number(d.amount) || 0;
 
     let ts = d.timestamp;
     if (ts?.toMillis) {
-      ts = ts.toMillis();          // Firestore Timestamp
+      ts = ts.toMillis(); // Firestore Timestamp
     } else if (ts instanceof Date) {
-      ts = ts.getTime();           // JS Date
-    } else if (typeof ts !== "number") {
-      ts = 0;                      // Fallback
+      ts = ts.getTime(); // JS Date
+    } else if (typeof ts !== 'number') {
+      ts = 0; // Fallback
     }
 
     return { ...d, amount, timestamp: ts };
@@ -208,8 +212,8 @@ export const getVotingSession = async () => {
   try {
     // Get current week's voting session
     const q = query(
-      collection(db, "votingSessions"),
-      where("active", "==", true),
+      collection(db, 'votingSessions'),
+      where('active', '==', true)
     );
     const querySnapshot = await getDocs(q);
 
@@ -220,33 +224,62 @@ export const getVotingSession = async () => {
 
     // Return mock if none exists
     return {
-      id: "week-45-2025",
-      poolAmount: 234.50,
-      startDate: new Date("2025-11-11"),
-      endDate: new Date("2025-11-17"),
+      id: 'week-45-2025',
+      poolAmount: 234.5,
+      startDate: new Date('2025-11-11'),
+      endDate: new Date('2025-11-17'),
       active: true,
       organizations: [
-        { id: "1", name: "Campus Food Pantry", description: "Supporting students with food security", votes: 45 },
-        { id: "2", name: "Green Initiative", description: "Campus sustainability projects", votes: 32 },
-        { id: "3", name: "Mental Health Awareness", description: "Student wellness programs", votes: 28 },
-        { id: "4", name: "Community Outreach", description: "Local volunteering opportunities", votes: 19 },
-        { id: "5", name: "Arts Council", description: "Supporting creative expression", votes: 15 },
+        {
+          id: '1',
+          name: 'Campus Food Pantry',
+          description: 'Supporting students with food security',
+          votes: 45,
+        },
+        {
+          id: '2',
+          name: 'Green Initiative',
+          description: 'Campus sustainability projects',
+          votes: 32,
+        },
+        {
+          id: '3',
+          name: 'Mental Health Awareness',
+          description: 'Student wellness programs',
+          votes: 28,
+        },
+        {
+          id: '4',
+          name: 'Community Outreach',
+          description: 'Local volunteering opportunities',
+          votes: 19,
+        },
+        {
+          id: '5',
+          name: 'Arts Council',
+          description: 'Supporting creative expression',
+          votes: 15,
+        },
       ],
     };
   } catch (error) {
-    console.error("Error getting voting session:", error);
+    console.error('Error getting voting session:', error);
     throw error;
   }
 };
 
 export const submitVote = async (userId, organizationId, sessionId) => {
   try {
-    const q = query(collection(db, "votes"), where("userId", "==", userId), where("sessionId", "==", sessionId));
+    const q = query(
+      collection(db, 'votes'),
+      where('userId', '==', userId),
+      where('sessionId', '==', sessionId)
+    );
     const querySnapshot = await getDocs(q);
     if (!querySnapshot.empty) {
-      throw new Error("You have already voted in this session");
+      throw new Error('You have already voted in this session');
     }
-    await addDoc(collection(db, "votes"), {
+    await addDoc(collection(db, 'votes'), {
       userId,
       organizationId,
       sessionId,
@@ -255,21 +288,21 @@ export const submitVote = async (userId, organizationId, sessionId) => {
     });
     return true;
   } catch (error) {
-    console.error("Error submitting vote:", error);
+    console.error('Error submitting vote:', error);
     throw error;
   }
 };
 
 export const closeWeeklyPool = async (weekId, winnerId, totalAmount) => {
   try {
-    await addDoc(collection(db, "weeklyReports"), {
+    await addDoc(collection(db, 'weeklyReports'), {
       weekId,
       winnerId,
       totalAmount,
       closedAt: new Date(),
     });
   } catch (error) {
-    console.error("Error closing weekly pool:", error);
+    console.error('Error closing weekly pool:', error);
     throw error;
   }
 };
