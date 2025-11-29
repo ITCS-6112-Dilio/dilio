@@ -12,6 +12,7 @@ import {
   where,
 } from 'firebase/firestore';
 import app from './firebase';
+import { roundCurrency } from '../utils/formatUtils';
 
 const db = getFirestore(app);
 
@@ -22,6 +23,7 @@ export const createCampaign = async (campaign) => {
   try {
     const docRef = await addDoc(collection(db, 'campaigns'), {
       ...campaign,
+      goal: roundCurrency(campaign.goal),
       status: 'pending',
       raised: 0,
       createdAt: new Date(),
@@ -138,7 +140,7 @@ export const getOrganizerTotalRaised = async (organizerId) => {
   try {
     const campaigns = await getCampaignsByOrganizer(organizerId);
     return campaigns.reduce((total, campaign) => {
-      return total + (Number(campaign.raised) || 0);
+      return roundCurrency(total + (Number(campaign.raised) || 0));
     }, 0);
   } catch (error) {
     console.error('Error calculating organizer total:', error);
@@ -209,7 +211,7 @@ export const donateDirectToCampaign = async ({
   amount,
   source = 'direct_from_dashboard',
 }) => {
-  const numericAmount = Number(amount);
+  const numericAmount = roundCurrency(amount);
   if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
     throw new Error('Invalid direct donation amount');
   }
@@ -240,6 +242,6 @@ export const getUserDirectDonationsTotal = async (userId) => {
   const snap = await getDocs(q);
   return snap.docs.reduce((sum, d) => {
     const data = d.data();
-    return sum + (Number(data.amount) || 0);
+    return roundCurrency(sum + (Number(data.amount) || 0));
   }, 0);
 };

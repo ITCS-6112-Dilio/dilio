@@ -148,7 +148,7 @@ export const getWeeklyReport = async () => {
   try {
     const q = query(
       collection(db, 'weeklyReports'),
-      orderBy('weekEnd', 'desc')
+      orderBy('closedAt', 'desc')
     );
     const querySnapshot = await getDocs(q);
     return querySnapshot.docs.map((doc) => ({

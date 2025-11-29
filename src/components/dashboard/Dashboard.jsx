@@ -336,10 +336,10 @@ const Dashboard = () => {
 
       alert(
         'Thank you! Donation of $' +
-          donationAmount.toFixed(2) +
-          ' recorded for ' +
-          campaignName +
-          '!'
+        donationAmount.toFixed(2) +
+        ' recorded for ' +
+        campaignName +
+        '!'
       );
     } catch (error) {
       alert('Error saving donation: ' + error.message);
@@ -386,9 +386,9 @@ const Dashboard = () => {
 
     const choice = prompt(
       'Choose where to donate:\n' +
-        '0. General Pool (Vote Later)\n' +
-        '1. Choose a Campaign\n\n' +
-        'Enter number:'
+      '0. General Pool (Vote Later)\n' +
+      '1. Choose a Campaign\n\n' +
+      'Enter number:'
     );
 
     if (choice === null) return;
@@ -787,9 +787,18 @@ const Dashboard = () => {
     let canDelete = true;
 
     if (donation.campaignId === 'general') {
-      const session = donation.votingSessionId
+      let session = donation.votingSessionId
         ? sessionsById[donation.votingSessionId]
         : null;
+
+      // Fallback: check if it matches the current session (for new donations)
+      if (
+        !session &&
+        donation.votingSessionId === currentVotingSession?.id &&
+        currentVotingSession
+      ) {
+        session = currentVotingSession;
+      }
 
       if (!session || session.active === false) {
         canEdit = false;
@@ -980,9 +989,9 @@ const Dashboard = () => {
                         style={
                           idx === allCampaigns.length - 1
                             ? {
-                                ...styles.campaignOption,
-                                ...styles.campaignOptionLast,
-                              }
+                              ...styles.campaignOption,
+                              ...styles.campaignOptionLast,
+                            }
                             : styles.campaignOption
                         }
                         onClick={() => handleSelectCampaign(campaign.id)}

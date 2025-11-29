@@ -12,6 +12,7 @@ import {
   runTransaction,
 } from 'firebase/firestore';
 import app from './firebase';
+import { roundCurrency } from '../utils/formatUtils';
 
 const db = getFirestore(app);
 
@@ -19,17 +20,15 @@ const db = getFirestore(app);
 export const saveDonation = async (donation) => {
   try {
     // Round amount to 2 decimal places
-    const roundedAmount = Math.round(donation.amount * 100) / 100;
+    const roundedAmount = roundCurrency(donation.amount);
 
     // Use a transaction to ensure atomicity
     const donationId = await runTransaction(db, async (transaction) => {
-      // Add the donation with rounded amount
-      const donationRef = doc(collection(db, 'donations'));
-      transaction.set(donationRef, {
+      const donationData = {
         ...donation,
         amount: roundedAmount,
         createdAt: new Date(),
-      });
+      };
 
       // Update campaign raised amount if donation is to a specific campaign
       if (donation.campaignId && donation.campaignId !== 'general') {
@@ -37,7 +36,25 @@ export const saveDonation = async (donation) => {
         transaction.update(campaignRef, {
           raised: increment(roundedAmount),
         });
+      } else {
+        // It's a general donation, update the active voting session's poolAmount
+        const sessionQuery = query(
+          collection(db, 'votingSessions'),
+          where('active', '==', true)
+        );
+        const sessionSnapshot = await getDocs(sessionQuery);
+        if (!sessionSnapshot.empty) {
+          const sessionDoc = sessionSnapshot.docs[0];
+          donationData.votingSessionId = sessionDoc.id;
+          transaction.update(sessionDoc.ref, {
+            poolAmount: increment(roundedAmount),
+          });
+        }
       }
+
+      // Add the donation with rounded amount
+      const donationRef = doc(collection(db, 'donations'));
+      transaction.set(donationRef, donationData);
 
       return donationRef.id;
     });
@@ -80,7 +97,7 @@ export const deleteDonation = async (donationId) => {
       }
 
       const donationData = donationSnap.data();
-      const roundedAmount = Math.round(donationData.amount * 100) / 100;
+      const roundedAmount = roundCurrency(donationData.amount);
 
       // Delete the donation
       transaction.delete(donationRef);
@@ -90,6 +107,19 @@ export const deleteDonation = async (donationId) => {
         const campaignRef = doc(db, 'campaigns', donationData.campaignId);
         transaction.update(campaignRef, {
           raised: increment(-roundedAmount),
+        });
+      } else if (
+        donationData.campaignId === 'general' &&
+        donationData.votingSessionId
+      ) {
+        // Decrement voting session pool amount
+        const sessionRef = doc(
+          db,
+          'votingSessions',
+          donationData.votingSessionId
+        );
+        transaction.update(sessionRef, {
+          poolAmount: increment(-roundedAmount),
         });
       }
     });
@@ -103,7 +133,7 @@ export const updateDonation = async (donationId, updates) => {
   try {
     // Round amount to 2 decimal places if amount is being updated
     if (updates.amount !== undefined) {
-      updates.amount = Math.round(updates.amount * 100) / 100;
+      updates.amount = roundCurrency(updates.amount);
     }
 
     // Use transaction to handle amount changes
@@ -123,16 +153,31 @@ export const updateDonation = async (donationId, updates) => {
       transaction.update(donationRef, updates);
 
       // Update campaign raised amount if it was to a specific campaign and amount changed
-      if (
-        donationData.campaignId &&
-        donationData.campaignId !== 'general' &&
-        newAmount !== oldAmount
-      ) {
-        const campaignRef = doc(db, 'campaigns', donationData.campaignId);
-        const difference = Math.round((newAmount - oldAmount) * 100) / 100;
-        transaction.update(campaignRef, {
-          raised: increment(difference),
-        });
+      if (newAmount !== oldAmount) {
+        const difference = roundCurrency(newAmount - oldAmount);
+
+        if (
+          donationData.campaignId &&
+          donationData.campaignId !== 'general'
+        ) {
+          const campaignRef = doc(db, 'campaigns', donationData.campaignId);
+          transaction.update(campaignRef, {
+            raised: increment(difference),
+          });
+        } else if (
+          donationData.campaignId === 'general' &&
+          donationData.votingSessionId
+        ) {
+          // Update voting session pool amount
+          const sessionRef = doc(
+            db,
+            'votingSessions',
+            donationData.votingSessionId
+          );
+          transaction.update(sessionRef, {
+            poolAmount: increment(difference),
+          });
+        }
       }
     });
   } catch (error) {
@@ -159,7 +204,7 @@ export const calculateStats = (donations = []) => {
   });
 
   // 1) Total donated
-  const totalDonated = normalized.reduce((sum, d) => sum + d.amount, 0);
+  const totalDonated = roundCurrency(normalized.reduce((sum, d) => sum + d.amount, 0));
 
   // 2) Points based on total donated
   //    e.g., 10 points per $1 donated
@@ -205,6 +250,25 @@ export const calculateStats = (donations = []) => {
     points,
     streak: Math.min(streak, 30),
   };
+};
+
+export const getTotalForVotingSession = async (sessionId) => {
+  try {
+    const q = query(
+      collection(db, 'donations'),
+      where('votingSessionId', '==', sessionId)
+    );
+
+    const snapshot = await getDocs(q);
+
+    return snapshot.docs.reduce((total, doc) => {
+      const data = doc.data();
+      return roundCurrency(total + (Number(data.amount) || 0));
+    }, 0);
+  } catch (error) {
+    console.error('Error calculating session total:', error);
+    return 0;
+  }
 };
 
 // VOTING

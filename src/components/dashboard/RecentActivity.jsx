@@ -1,5 +1,6 @@
 ﻿// src/components/dashboard/RecentActivity.jsx
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { formatCurrency } from '../../utils/formatUtils';
 
 const RecentActivity = ({ donations = [], onDelete, onEdit }) => {
   const [currentPage, setCurrentPage] = useState(0);
@@ -149,8 +150,6 @@ const RecentActivity = ({ donations = [], onDelete, onEdit }) => {
         <>
           <div style={styles.list}>
             {currentDonations.map((donation) => {
-              console.log(donation);
-
               return (
                 <div key={donation.id} style={styles.item}>
                   <div style={styles.icon}>💰</div>
@@ -162,7 +161,9 @@ const RecentActivity = ({ donations = [], onDelete, onEdit }) => {
                       {formatDate(donation.timestamp)}
                     </p>
                   </div>
-                  <div style={styles.amount}>${donation.amount.toFixed(2)}</div>
+                  <div style={styles.amount}>
+                    {formatCurrency(donation.amount)}
+                  </div>
                   <div style={styles.actions}>
                     {donation.canEdit && (
                       <button

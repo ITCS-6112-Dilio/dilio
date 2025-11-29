@@ -8,6 +8,8 @@ import {
 } from '../../services/votingService';
 import Button from '../Button';
 import { useUser } from '../../context/UserContext';
+import { formatCurrency, formatDateRange } from '../../utils/formatUtils';
+import PastVotingResults from './PastVotingResults';
 
 const VotingView = () => {
   const { user } = useUser();
@@ -17,7 +19,6 @@ const VotingView = () => {
   const [hasVoted, setHasVoted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [pastSessions, setPastSessions] = useState([]);
-  const [showHistory, setShowHistory] = useState(false);
   const [isUpdatingVote, setIsUpdatingVote] = useState(false);
 
   useEffect(() => {
@@ -31,11 +32,16 @@ const VotingView = () => {
       const sessionData = await getCurrentVotingSession();
       setSession(sessionData);
 
-      // Check if user has already voted and get their vote
-      const userVote = await getUserVote(user.uid, sessionData.id);
-      if (userVote) {
-        setHasVoted(true);
-        setSelectedCampaign(userVote.campaignId);
+      if (sessionData) {
+        // Check if user has already voted and get their vote
+        const userVote = await getUserVote(user.uid, sessionData.id);
+        if (userVote) {
+          setHasVoted(true);
+          setSelectedCampaign(userVote.campaignId);
+        } else {
+          setHasVoted(false);
+          setSelectedCampaign(null);
+        }
       } else {
         setHasVoted(false);
         setSelectedCampaign(null);
@@ -90,17 +96,6 @@ const VotingView = () => {
     setIsUpdatingVote(false);
     // Reset to original vote
     loadVotingSession();
-  };
-
-  const formatDateRange = (startDate, endDate) => {
-    const start = new Date(startDate);
-    const end = new Date(endDate);
-
-    const options = { month: 'short', day: 'numeric' };
-    const startStr = start.toLocaleDateString('en-US', options);
-    const endStr = end.toLocaleDateString('en-US', options);
-
-    return `${startStr} - ${endStr}`;
   };
 
   const styles = {
@@ -251,87 +246,6 @@ const VotingView = () => {
         "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
       marginBottom: '20px',
     },
-    historyToggle: {
-      width: '100%',
-      padding: '10px',
-      background: '#f8fafc',
-      border: '1px solid #e2e8f0',
-      borderRadius: '8px',
-      cursor: 'pointer',
-      fontSize: '13px',
-      fontWeight: 500,
-      color: '#475569',
-      marginBottom: '20px',
-      textAlign: 'center',
-      fontFamily:
-        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    },
-    historySection: {
-      marginTop: '20px',
-      marginBottom: '20px',
-    },
-    historyTitle: {
-      fontSize: '15px',
-      fontWeight: 600,
-      marginBottom: '12px',
-      color: '#0f172a',
-      fontFamily:
-        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    },
-    historyCard: {
-      background: '#f8fafc',
-      border: '1px solid #e2e8f0',
-      borderRadius: '8px',
-      padding: '12px',
-      marginBottom: '12px',
-    },
-    historyWeek: {
-      fontSize: '13px',
-      fontWeight: 600,
-      color: '#475569',
-      marginBottom: '8px',
-      fontFamily:
-        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    },
-    distributionItem: {
-      display: 'flex',
-      justifyContent: 'space-between',
-      alignItems: 'center',
-      padding: '8px 0',
-      borderBottom: '1px solid #e2e8f0',
-    },
-    distributionItemLast: {
-      borderBottom: 'none',
-    },
-    distributionName: {
-      fontSize: '12px',
-      color: '#0f172a',
-      flex: 1,
-      fontFamily:
-        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    },
-    distributionBar: {
-      flex: 2,
-      height: '6px',
-      background: '#e2e8f0',
-      borderRadius: '3px',
-      margin: '0 8px',
-      overflow: 'hidden',
-    },
-    distributionFill: {
-      height: '100%',
-      background: 'linear-gradient(90deg, #2563eb, #3b82f6)',
-      borderRadius: '3px',
-    },
-    distributionPercent: {
-      fontSize: '12px',
-      fontWeight: 600,
-      color: '#2563eb',
-      minWidth: '50px',
-      textAlign: 'right',
-      fontFamily:
-        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    },
   };
 
   if (loading) {
@@ -344,6 +258,7 @@ const VotingView = () => {
     );
   }
 
+  // 1. No Active Session
   if (!session || !session.campaigns || session.campaigns.length === 0) {
     return (
       <div style={styles.container}>
@@ -358,11 +273,12 @@ const VotingView = () => {
             Check back later or contact an administrator.
           </p>
         </div>
+        <PastVotingResults sessions={pastSessions} />
       </div>
     );
   }
 
-  // Show locked view if voted and not updating
+  // 2. Voted State (Locked)
   if (hasVoted && !isUpdatingVote) {
     return (
       <div style={styles.container}>
@@ -376,6 +292,9 @@ const VotingView = () => {
           </p>
           <p style={styles.totalVotes}>
             Total Votes: {session.totalVotes || 0}
+          </p>
+          <p style={{ ...styles.totalVotes, color: '#059669' }}>
+            Current Pool: {formatCurrency(session.poolAmount || 0)}
           </p>
         </div>
 
@@ -395,9 +314,9 @@ const VotingView = () => {
               const percentage =
                 session.totalVotes > 0
                   ? (
-                      ((campaign.votes || 0) / session.totalVotes) *
-                      100
-                    ).toFixed(1)
+                    ((campaign.votes || 0) / session.totalVotes) *
+                    100
+                  ).toFixed(1)
                   : 0;
               const isUserVote = campaign.id === selectedCampaign;
               return (
@@ -430,79 +349,12 @@ const VotingView = () => {
               );
             })}
         </div>
-
-        {pastSessions.length > 0 && (
-          <>
-            <button
-              style={styles.historyToggle}
-              onClick={() => setShowHistory(!showHistory)}
-            >
-              {showHistory ? '▼' : '►'} Past Voting Results
-            </button>
-
-            {showHistory && (
-              <div style={styles.historySection}>
-                <h3 style={styles.historyTitle}>Previous Weeks</h3>
-                {pastSessions.map((pastSession) => (
-                  <div key={pastSession.id} style={styles.historyCard}>
-                    <div style={styles.historyWeek}>
-                      {formatDateRange(
-                        pastSession.startDate,
-                        pastSession.endDate
-                      )}
-                    </div>
-                    {pastSession.campaigns
-                      .sort((a, b) => (b.votes || 0) - (a.votes || 0))
-                      .map((campaign, idx) => {
-                        const percentage =
-                          pastSession.totalVotes > 0
-                            ? (
-                                ((campaign.votes || 0) /
-                                  pastSession.totalVotes) *
-                                100
-                              ).toFixed(1)
-                            : 0;
-                        const isLast = idx === pastSession.campaigns.length - 1;
-                        return (
-                          <div
-                            key={campaign.id}
-                            style={
-                              isLast
-                                ? {
-                                    ...styles.distributionItem,
-                                    ...styles.distributionItemLast,
-                                  }
-                                : styles.distributionItem
-                            }
-                          >
-                            <div style={styles.distributionName}>
-                              {campaign.name}
-                            </div>
-                            <div style={styles.distributionBar}>
-                              <div
-                                style={{
-                                  ...styles.distributionFill,
-                                  width: `${percentage}%`,
-                                }}
-                              />
-                            </div>
-                            <div style={styles.distributionPercent}>
-                              {percentage}%
-                            </div>
-                          </div>
-                        );
-                      })}
-                  </div>
-                ))}
-              </div>
-            )}
-          </>
-        )}
+        <PastVotingResults sessions={pastSessions} />
       </div>
     );
   }
 
-  // Show voting/updating view
+  // 3. Voting State (Active or Updating)
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -520,6 +372,9 @@ const VotingView = () => {
         </p>
         <p style={styles.totalVotes}>
           Total Votes So Far: {session.totalVotes || 0}
+        </p>
+        <p style={{ ...styles.totalVotes, color: '#059669' }}>
+          Current Pool: {formatCurrency(session.poolAmount || 0)}
         </p>
       </div>
 
@@ -577,72 +432,7 @@ const VotingView = () => {
         </Button>
       )}
 
-      {pastSessions.length > 0 && (
-        <>
-          <button
-            style={styles.historyToggle}
-            onClick={() => setShowHistory(!showHistory)}
-          >
-            {showHistory ? '▼' : '►'} Past Voting Results
-          </button>
-
-          {showHistory && (
-            <div style={styles.historySection}>
-              <h3 style={styles.historyTitle}>Previous Weeks</h3>
-              {pastSessions.map((pastSession) => (
-                <div key={pastSession.id} style={styles.historyCard}>
-                  <div style={styles.historyWeek}>
-                    {formatDateRange(
-                      pastSession.startDate,
-                      pastSession.endDate
-                    )}
-                  </div>
-                  {pastSession.campaigns
-                    .sort((a, b) => (b.votes || 0) - (a.votes || 0))
-                    .map((campaign, idx) => {
-                      const percentage =
-                        pastSession.totalVotes > 0
-                          ? (
-                              ((campaign.votes || 0) / pastSession.totalVotes) *
-                              100
-                            ).toFixed(1)
-                          : 0;
-                      const isLast = idx === pastSession.campaigns.length - 1;
-                      return (
-                        <div
-                          key={campaign.id}
-                          style={
-                            isLast
-                              ? {
-                                  ...styles.distributionItem,
-                                  ...styles.distributionItemLast,
-                                }
-                              : styles.distributionItem
-                          }
-                        >
-                          <div style={styles.distributionName}>
-                            {campaign.name}
-                          </div>
-                          <div style={styles.distributionBar}>
-                            <div
-                              style={{
-                                ...styles.distributionFill,
-                                width: `${percentage}%`,
-                              }}
-                            />
-                          </div>
-                          <div style={styles.distributionPercent}>
-                            {percentage}%
-                          </div>
-                        </div>
-                      );
-                    })}
-                </div>
-              ))}
-            </div>
-          )}
-        </>
-      )}
+      <PastVotingResults sessions={pastSessions} />
     </div>
   );
 };

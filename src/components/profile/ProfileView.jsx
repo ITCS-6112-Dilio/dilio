@@ -8,6 +8,11 @@ import {
   getUserBadges,
   BADGE_LABELS,
 } from '../../services/userService';
+import {
+  closeVotingSession,
+  getCurrentVotingSession,
+} from '../../services/votingService';
+import { createMockDataForPreviousWeek } from '../../services/mockDataService';
 import Input from '../Input';
 import Button from '../Button';
 import { useUser } from '../../context/UserContext';
@@ -106,6 +111,29 @@ const ProfileView = ({ onLogout }) => {
     }
   };
 
+  const handleClosePool = async () => {
+    if (
+      !window.confirm(
+        'Are you sure you want to close the current weekly pool? This will transfer funds to the winner.'
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const session = await getCurrentVotingSession();
+      const result = await closeVotingSession(session.id);
+      alert(
+        `✅ Pool closed! Winner: ${result.winner.name}, Amount: $${result.poolTotal}`
+      );
+    } catch (error) {
+      alert('Error closing pool: ' + error.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleMigrateDonations = async () => {
     if (
       !window.confirm(
@@ -151,6 +179,26 @@ const ProfileView = ({ onLogout }) => {
       alert('Migration failed: ' + error.message);
     } finally {
       setMigrating(false);
+    }
+  };
+
+  const handleCreateMockData = async () => {
+    if (
+      !window.confirm(
+        'Create mock data for the PAST 2 WEEKS? This will generate campaigns, votes, and donations.'
+      )
+    ) {
+      return;
+    }
+
+    setLoading(true);
+    try {
+      await createMockDataForPreviousWeek();
+      alert('✅ Mock data created for past 2 weeks! Check Past Results.');
+    } catch (error) {
+      alert('Error creating mock data: ' + error.message);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -388,6 +436,18 @@ const ProfileView = ({ onLogout }) => {
             </button>
 
             <button
+              style={{ ...styles.devButton, ...styles.migrateBtn, background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+              onClick={handleCreateMockData}
+              disabled={loading}
+              onMouseEnter={(e) =>
+                (e.target.style.transform = 'translateY(-2px)')
+              }
+              onMouseLeave={(e) => (e.target.style.transform = 'translateY(0)')}
+            >
+              🛠️ Create Mock Data (Past 2 Weeks)
+            </button>
+
+            <button
               style={{ ...styles.devButton, ...styles.roleBtn }}
               onClick={handleMakeAdmin}
               onMouseEnter={(e) =>
@@ -426,6 +486,17 @@ const ProfileView = ({ onLogout }) => {
               onMouseLeave={(e) => (e.target.style.transform = 'translateY(0)')}
             >
               Make Me Organizer
+            </button>
+
+            <button
+              style={{ ...styles.devButton, ...styles.roleBtn, background: '#ef4444' }}
+              onClick={handleClosePool}
+              onMouseEnter={(e) =>
+                (e.target.style.transform = 'translateY(-2px)')
+              }
+              onMouseLeave={(e) => (e.target.style.transform = 'translateY(0)')}
+            >
+              ⚠️ Close Weekly Pool
             </button>
           </div>
         </>
@@ -518,8 +589,8 @@ const ProfileView = ({ onLogout }) => {
                   >
                     {badge.awardedAt?.seconds
                       ? new Date(
-                          badge.awardedAt.seconds * 1000
-                        ).toLocaleDateString()
+                        badge.awardedAt.seconds * 1000
+                      ).toLocaleDateString()
                       : ''}
                   </div>
                 </div>

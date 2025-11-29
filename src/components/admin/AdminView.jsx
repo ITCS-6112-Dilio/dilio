@@ -9,6 +9,7 @@ import {
   rejectRoleRequest,
   updateUserRole,
 } from '../../services/userService';
+import { formatCurrency, formatDateRange } from '../../utils/formatUtils';
 import Button from '../Button';
 import { useUser } from '../../context/UserContext';
 import {
@@ -26,10 +27,24 @@ const AdminView = ({ onBack }) => {
   const [activeTab, setActiveTab] = useState('campaigns');
   const [loading, setLoading] = useState(true);
   const [roleChanges, setRoleChanges] = useState({});
+  const [expandedReports, setExpandedReports] = useState({});
+  const [currentPage, setCurrentPage] = useState(0);
+  const itemsPerPage = 5;
+
+  const toggleReport = (reportId) => {
+    setExpandedReports((prev) => ({
+      ...prev,
+      [reportId]: !prev[reportId],
+    }));
+  };
 
   useEffect(() => {
     loadData();
   }, []);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [activeTab]);
 
   const loadData = async () => {
     setLoading(true);
@@ -268,6 +283,103 @@ const AdminView = ({ onBack }) => {
       fontFamily:
         "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
     },
+    reportHeader: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      cursor: 'pointer',
+    },
+    reportHeaderContent: {
+      flex: 1,
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+    },
+    reportTitle: {
+      fontSize: '16px',
+      fontWeight: 600,
+      color: '#1e293b',
+    },
+    reportMeta: {
+      fontSize: '13px',
+      color: '#64748b',
+    },
+    toggleIcon: {
+      marginRight: '12px',
+      color: '#64748b',
+      fontSize: '12px',
+    },
+    reportDetails: {
+      borderTop: '1px solid #e2e8f0',
+      paddingTop: '16px',
+      marginTop: '16px',
+    },
+    winnerSection: {
+      background: '#f0fdf4',
+      border: '1px solid #bbf7d0',
+      borderRadius: '8px',
+      padding: '12px',
+      marginTop: '12px',
+      display: 'flex',
+      alignItems: 'center',
+      gap: '12px',
+    },
+    winnerIcon: {
+      fontSize: '20px',
+    },
+    winnerText: {
+      fontSize: '14px',
+      fontWeight: 600,
+      color: '#166534',
+    },
+    breakdownTable: {
+      width: '100%',
+      fontSize: '13px',
+      borderCollapse: 'collapse',
+    },
+    breakdownHeader: {
+      textAlign: 'left',
+      padding: '8px',
+      color: '#64748b',
+      fontWeight: 500,
+      borderBottom: '1px solid #e2e8f0',
+    },
+    breakdownCell: {
+      padding: '8px',
+      borderBottom: '1px solid #f1f5f9',
+      color: '#334155',
+    },
+    pagination: {
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      gap: '8px',
+      marginTop: '16px',
+    },
+    pageBtn: {
+      padding: '8px 16px',
+      fontSize: '13px',
+      border: '1px solid #e2e8f0',
+      borderRadius: '6px',
+      background: '#ffffff',
+      color: '#64748b',
+      cursor: 'pointer',
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+      transition: 'all 0.2s',
+      fontWeight: 500,
+    },
+    pageBtnDisabled: {
+      opacity: 0.5,
+      cursor: 'not-allowed',
+    },
+    pageInfo: {
+      fontSize: '13px',
+      color: '#64748b',
+      fontWeight: 500,
+      fontFamily:
+        "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
+    },
   };
 
   if (loading) {
@@ -279,7 +391,7 @@ const AdminView = ({ onBack }) => {
   }
 
   return (
-    <div style={styles.container}>
+    <div style={styles.container} >
       <div style={styles.header}>
         <h2 style={styles.title}>Admin Panel</h2>
       </div>
@@ -324,7 +436,8 @@ const AdminView = ({ onBack }) => {
                 <div style={styles.campaignTitle}>{campaign.name}</div>
                 <div style={styles.campaignDesc}>{campaign.description}</div>
                 <div style={styles.campaignMeta}>
-                  Goal: ${campaign.goal} <br />
+                  Raised: {formatCurrency(campaign.raised)} <br />
+                  Goal: {formatCurrency(campaign.goal)} <br />
                   Category: {campaign.category}
                 </div>
                 <div style={styles.buttonGroup}>
@@ -345,191 +458,352 @@ const AdminView = ({ onBack }) => {
             ))
           )}
         </div>
-      )}
+      )
+      }
 
-      {activeTab === 'roles' && (
-        <div>
-          {roleRequests.length === 0 ? (
-            <p style={styles.noData}>No pending role requests</p>
-          ) : (
-            roleRequests.map((req) => {
-              const user = req.user;
-              const displayName = user?.displayName;
-              const email = user?.email;
-              const currentRole = user?.role || 'user';
+      {
+        activeTab === 'roles' && (
+          <div>
+            {roleRequests.length === 0 ? (
+              <p style={styles.noData}>No pending role requests</p>
+            ) : (
+              roleRequests.map((req) => {
+                const user = req.user;
+                const displayName = user?.displayName;
+                const email = user?.email;
+                const currentRole = user?.role || 'user';
 
-              return (
-                <div key={req.id} style={styles.roleCard}>
-                  <div style={styles.roleTitle}>
-                    {displayName ? (
-                      <>
-                        {displayName}{' '}
-                        <span style={{ color: '#334155' }}>
-                          &lt;{email}&gt;
-                        </span>
-                      </>
-                    ) : (
-                      email
-                    )}
+                return (
+                  <div key={req.id} style={styles.roleCard}>
+                    <div style={styles.roleTitle}>
+                      {displayName ? (
+                        <>
+                          {displayName}{' '}
+                          <span style={{ color: '#334155' }}>
+                            &lt;{email}&gt;
+                          </span>
+                        </>
+                      ) : (
+                        email
+                      )}
+                    </div>
+
+                    <div style={styles.roleDetails}>
+                      <b>Current Role:</b> {currentRole} <br />
+                      <b>Requested Role:</b> {req.requestedRole} <br />
+                      <b>Reason:</b> {req.reason || '—'} <br />
+                      <b>Requested At:</b>{' '}
+                      {req.createdAt?.seconds
+                        ? new Date(req.createdAt.seconds * 1000).toLocaleString()
+                        : new Date(req.createdAt).toLocaleString()}
+                    </div>
+
+                    <div style={styles.buttonGroup}>
+                      <button
+                        style={styles.approveBtn}
+                        onClick={() =>
+                          handleApproveRole({
+                            id: req.id,
+                            userId: req.userId,
+                            requestedRole: req.requestedRole,
+                          })
+                        }
+                      >
+                        Approve
+                      </button>
+
+                      <button
+                        style={styles.rejectBtn}
+                        onClick={() => handleRejectRole(req.id)}
+                      >
+                        Reject
+                      </button>
+                    </div>
                   </div>
+                );
+              })
+            )}
 
-                  <div style={styles.roleDetails}>
-                    <b>Current Role:</b> {currentRole} <br />
-                    <b>Requested Role:</b> {req.requestedRole} <br />
-                    <b>Reason:</b> {req.reason || '—'} <br />
-                    <b>Requested At:</b>{' '}
-                    {req.createdAt?.seconds
-                      ? new Date(req.createdAt.seconds * 1000).toLocaleString()
-                      : new Date(req.createdAt).toLocaleString()}
-                  </div>
+            {/*  new code start here */}
+            <div style={{ marginTop: 24 }}>
+              <h3 style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>
+                Manage User Roles
+              </h3>
+              {allUsers.length === 0 ? (
+                <p className="noData">No users found</p>
+              ) : (
+                <table
+                  style={{
+                    width: '100%',
+                    fontSize: 13,
+                    borderCollapse: 'collapse',
+                  }}
+                >
+                  <thead>
+                    <tr>
+                      <th align="left">Name / Email</th>
+                      <th align="left">Current Role</th>
+                      <th align="left">Assign Role</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allUsers
+                      .filter((u) => u.id !== user.uid)
+                      .map((user) => (
+                        <tr
+                          key={user.id}
+                          style={{ borderBottom: '1px solid #e2e8f0' }}
+                        >
+                          <td>
+                            {user.displayName ? (
+                              <>
+                                {user.displayName}
+                                <br />
+                                <span style={{ color: '#475569' }}>
+                                  {user.email}
+                                </span>
+                              </>
+                            ) : (
+                              user.email
+                            )}
+                          </td>
+                          <td>{user.role}</td>
+                          <td>
+                            <select
+                              value={roleChanges[user.id] || ''}
+                              onChange={(e) =>
+                                handleRoleChange(user.id, e.target.value)
+                              }
+                              style={{ marginRight: 8 }}
+                            >
+                              <option value="" disabled>
+                                Select Role
+                              </option>
+                              {['student', 'organizer', 'admin']
+                                .filter((role) => role !== user.role)
+                                .map((role) => (
+                                  <option key={role} value={role}>
+                                    {role}
+                                  </option>
+                                ))}
+                            </select>
+                            <button
+                              className={roleChanges[user.id] ? 'approveBtn' : ''}
+                              style={{
+                                padding: '4px 12px',
+                                border: 'none',
+                                borderRadius: 4,
+                                fontSize: 13,
+                                fontWeight: 600,
+                                cursor: 'pointer',
+                                background: roleChanges[user.id]
+                                  ? '#2563eb'
+                                  : '#e2e8f0',
+                                color: roleChanges[user.id] ? '#fff' : '#64748b',
+                              }}
+                              disabled={!roleChanges[user.id]}
+                              onClick={() => handleSaveRole(user)}
+                            >
+                              Save
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+            {/*  new code end here */}
+          </div>
+        )
+      }
 
-                  <div style={styles.buttonGroup}>
+      {
+        activeTab === 'reports' && (
+          <div>
+            {weeklyReports.length === 0 ? (
+              <p style={styles.noData}>No weekly reports yet</p>
+            ) : (
+              <>
+                {weeklyReports
+                  .slice(currentPage * itemsPerPage, (currentPage + 1) * itemsPerPage)
+                  .map((report) => (
+                    <div key={report.id} style={styles.reportCard}>
+                      <div
+                        style={styles.reportHeader}
+                        onClick={() => toggleReport(report.id)}
+                      >
+                        <div style={styles.toggleIcon}>
+                          {expandedReports[report.id] ? '▼' : '►'}
+                        </div>
+                        <div style={styles.reportHeaderContent}>
+                          <div>
+                            <div style={styles.reportTitle}>
+                              {report.startDate && report.endDate
+                                ? formatDateRange(report.startDate, report.endDate)
+                                : `Week ${report.weekId}`}
+                            </div>
+                            <div style={styles.reportMeta}>
+                              Closed:{' '}
+                              {report.closedAt?.seconds
+                                ? new Date(
+                                  report.closedAt.seconds * 1000
+                                ).toLocaleDateString()
+                                : new Date(report.closedAt).toLocaleDateString()}
+                            </div>
+
+                          </div>
+                          <div style={{ textAlign: 'right' }}>
+                            <div
+                              style={{
+                                fontSize: '18px',
+                                fontWeight: 700,
+                                color: '#2563eb',
+                              }}
+                            >
+                              {formatCurrency(report.totalAmount || 0)}
+                            </div>
+                            <div style={styles.reportMeta}>
+                              {report.totalVotes || 0} Votes
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={styles.winnerSection}>
+                        <span style={styles.winnerIcon}>🏆</span>
+                        <div>
+                          <div
+                            style={{
+                              fontSize: '12px',
+                              color: '#166534',
+                              fontWeight: 500,
+                            }}
+                          >
+                            WINNER
+                          </div>
+                          <div style={styles.winnerText}>
+                            {report.winnerName || 'Unknown Campaign'}
+                          </div>
+                        </div>
+                      </div>
+
+                      {expandedReports[report.id] && (
+                        <div style={styles.reportDetails}>
+                          {report.campaigns && report.campaigns.length > 0 && (
+                            <div>
+                              <div
+                                style={{
+                                  fontSize: '13px',
+                                  fontWeight: 600,
+                                  marginBottom: '8px',
+                                  color: '#475569',
+                                }}
+                              >
+                                Vote Breakdown
+                              </div>
+                              <table style={styles.breakdownTable}>
+                                <thead>
+                                  <tr>
+                                    <th style={styles.breakdownHeader}>Campaign</th>
+                                    <th style={styles.breakdownHeader}>Votes</th>
+                                    <th style={styles.breakdownHeader}>%</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {report.campaigns
+                                    .sort(
+                                      (a, b) => (b.votes || 0) - (a.votes || 0)
+                                    )
+                                    .map((campaign) => {
+                                      const percentage =
+                                        report.totalVotes > 0
+                                          ? (
+                                            ((campaign.votes || 0) /
+                                              report.totalVotes) *
+                                            100
+                                          ).toFixed(1)
+                                          : 0;
+                                      return (
+                                        <tr key={campaign.id}>
+                                          <td style={styles.breakdownCell}>
+                                            {campaign.name}
+                                            {campaign.id === report.winnerId &&
+                                              ' 🏆'}
+                                          </td>
+                                          <td style={styles.breakdownCell}>
+                                            {campaign.votes || 0}
+                                          </td>
+                                          <td style={styles.breakdownCell}>
+                                            {percentage}%
+                                          </td>
+                                        </tr>
+                                      );
+                                    })}
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+
+                {Math.ceil(weeklyReports.length / itemsPerPage) > 1 && (
+                  <div style={styles.pagination}>
                     <button
-                      style={styles.approveBtn}
+                      style={{
+                        ...styles.pageBtn,
+                        ...(currentPage === 0 ? styles.pageBtnDisabled : {}),
+                      }}
                       onClick={() =>
-                        handleApproveRole({
-                          id: req.id,
-                          userId: req.userId,
-                          requestedRole: req.requestedRole,
-                        })
+                        setCurrentPage((prev) => Math.max(0, prev - 1))
+                      }
+                      disabled={currentPage === 0}
+                    >
+                      ← Prev
+                    </button>
+
+                    <span style={styles.pageInfo}>
+                      {currentPage + 1} /{' '}
+                      {Math.ceil(weeklyReports.length / itemsPerPage)}
+                    </span>
+
+                    <button
+                      style={{
+                        ...styles.pageBtn,
+                        ...(currentPage ===
+                          Math.ceil(weeklyReports.length / itemsPerPage) - 1
+                          ? styles.pageBtnDisabled
+                          : {}),
+                      }}
+                      onClick={() =>
+                        setCurrentPage((prev) =>
+                          Math.min(
+                            Math.ceil(weeklyReports.length / itemsPerPage) - 1,
+                            prev + 1
+                          )
+                        )
+                      }
+                      disabled={
+                        currentPage ===
+                        Math.ceil(weeklyReports.length / itemsPerPage) - 1
                       }
                     >
-                      Approve
-                    </button>
-
-                    <button
-                      style={styles.rejectBtn}
-                      onClick={() => handleRejectRole(req.id)}
-                    >
-                      Reject
+                      Next →
                     </button>
                   </div>
-                </div>
-              );
-            })
-          )}
-
-          {/*  new code start here */}
-          <div style={{ marginTop: 24 }}>
-            <h3 style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>
-              Manage User Roles
-            </h3>
-            {allUsers.length === 0 ? (
-              <p className="noData">No users found</p>
-            ) : (
-              <table
-                style={{
-                  width: '100%',
-                  fontSize: 13,
-                  borderCollapse: 'collapse',
-                }}
-              >
-                <thead>
-                  <tr>
-                    <th align="left">Name / Email</th>
-                    <th align="left">Current Role</th>
-                    <th align="left">Assign Role</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {allUsers
-                    .filter((u) => u.id !== user.uid)
-                    .map((user) => (
-                      <tr
-                        key={user.id}
-                        style={{ borderBottom: '1px solid #e2e8f0' }}
-                      >
-                        <td>
-                          {user.displayName ? (
-                            <>
-                              {user.displayName}
-                              <br />
-                              <span style={{ color: '#475569' }}>
-                                {user.email}
-                              </span>
-                            </>
-                          ) : (
-                            user.email
-                          )}
-                        </td>
-                        <td>{user.role}</td>
-                        <td>
-                          <select
-                            value={roleChanges[user.id] || ''}
-                            onChange={(e) =>
-                              handleRoleChange(user.id, e.target.value)
-                            }
-                            style={{ marginRight: 8 }}
-                          >
-                            <option value="" disabled>
-                              Select Role
-                            </option>
-                            {['student', 'organizer', 'admin']
-                              .filter((role) => role !== user.role)
-                              .map((role) => (
-                                <option key={role} value={role}>
-                                  {role}
-                                </option>
-                              ))}
-                          </select>
-                          <button
-                            className={roleChanges[user.id] ? 'approveBtn' : ''}
-                            style={{
-                              padding: '4px 12px',
-                              border: 'none',
-                              borderRadius: 4,
-                              fontSize: 13,
-                              fontWeight: 600,
-                              cursor: 'pointer',
-                              background: roleChanges[user.id]
-                                ? '#2563eb'
-                                : '#e2e8f0',
-                              color: roleChanges[user.id] ? '#fff' : '#64748b',
-                            }}
-                            disabled={!roleChanges[user.id]}
-                            onClick={() => handleSaveRole(user)}
-                          >
-                            Save
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                </tbody>
-              </table>
+                )}
+              </>
             )}
           </div>
-          {/*  new code end here */}
-        </div>
-      )}
-
-      {activeTab === 'reports' && (
-        <div>
-          {weeklyReports.length === 0 ? (
-            <p style={styles.noData}>No weekly reports yet</p>
-          ) : (
-            weeklyReports.map((report) => (
-              <div key={report.id} style={styles.reportCard}>
-                <div style={styles.campaignTitle}>Week {report.weekId}</div>
-                <div style={styles.campaignDesc}>
-                  Winner: {report.winnerId}
-                  <br />
-                  Total Amount: \\
-                  <br />
-                  Closed:{' '}
-                  {new Date(
-                    report.closedAt?.seconds * 1000
-                  ).toLocaleDateString()}
-                </div>
-              </div>
-            ))
-          )}
-        </div>
-      )}
+        )
+      }
 
       <Button variant="secondary" onClick={onBack} style={styles.backBtn}>
         Back to Dashboard
       </Button>
-    </div>
+    </div >
   );
 };
 

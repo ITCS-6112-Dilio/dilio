@@ -1,4 +1,5 @@
 ﻿// src/components/campaigns/CampaignCard.jsx
+import { formatCurrency } from '../../utils/formatUtils';
 const CampaignCard = ({ campaign, editable = false, onEdit }) => {
   const percentage = Math.min((campaign.raised / campaign.goal) * 100, 100);
 
@@ -94,10 +95,10 @@ const CampaignCard = ({ campaign, editable = false, onEdit }) => {
       </div>
       <div style={styles.stats}>
         <span style={styles.statLabel}>
-          <span style={styles.statValue}>${campaign.raised}</span> raised
+          <span style={styles.statValue}>{formatCurrency(campaign.raised)}</span> raised
         </span>
         <span style={styles.statLabel}>
-          Goal: <span style={styles.statValue}>${campaign.goal}</span>
+          Goal: <span style={styles.statValue}>{formatCurrency(campaign.goal)}</span>
         </span>
       </div>
       {editable && (
