@@ -1,7 +1,7 @@
 name: Notify Voting Session Ending
 on:
   schedule:
-    - cron: '27 2 * * 6' # Saturday 09:27 PM EST
+    - cron: '27 2 * * 0' # Saturday 09:27 PM EST
   workflow_dispatch:
 jobs:
   notify-voting-end:
