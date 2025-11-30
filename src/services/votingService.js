@@ -18,7 +18,8 @@ import {
 } from 'firebase/firestore';
 import { db } from './firebase';
 import { getTotalForVotingSession } from './donationService';
-import { roundCurrency } from '../utils/formatUtils';
+import { roundCurrency, formatDateRange } from '../utils/formatUtils';
+import { addNotification } from './notificationService';
 
 /**
  * Get a voting session by its document ID
@@ -420,6 +421,26 @@ export const closeVotingSession = async (sessionId) => {
         })),
       });
     });
+
+    // 5. Notify the Winner (After Transaction)
+    try {
+      const winnerCampaignDoc = await getDoc(doc(db, 'campaigns', winner.id));
+      console.log('Winner Campaign Doc:', winnerCampaignDoc);
+      if (winnerCampaignDoc.exists()) {
+        const winnerData = winnerCampaignDoc.data();
+        console.log('Winner Data:', winnerData);
+        if (winnerData.organizerId) {
+          console.log('Sending win notification to:', winnerData.organizerId);
+          await addNotification(
+            winnerData.organizerId,
+            'campaign_win',
+            `🎉 Congratulations! Your campaign "${winner.name}" won the weekly voting for this week (${formatDateRange(sessionData.startDate, sessionData.endDate)})!`
+          );
+        }
+      }
+    } catch (notifyError) {
+      console.error('Error sending win notification:', notifyError);
+    }
 
     return { success: true, winner, poolTotal };
   } catch (error) {

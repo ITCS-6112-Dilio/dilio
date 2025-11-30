@@ -1,3 +1,4 @@
+// src/services/mockDataService.js
 import {
   collection,
   doc,
@@ -7,6 +8,8 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import app from './firebase';
+import { addNotification } from './notificationService';
+import { formatDateRange } from '../utils/formatUtils';
 
 const db = getFirestore(app);
 
@@ -197,8 +200,8 @@ const createDataForWeek = (transaction, offsetWeeks) => {
             ? 1
             : 0
         : c.id === campaigns[0].id ||
-            c.id === campaigns[1].id ||
-            c.id === campaigns[2].id
+          c.id === campaigns[1].id ||
+          c.id === campaigns[2].id
           ? 1
           : 0;
 
@@ -244,17 +247,41 @@ const createDataForWeek = (transaction, offsetWeeks) => {
     transaction.update(campaignRef, { raised: increment(c.earned) });
   });
 
-  return weekId;
+  return {
+    weekId,
+    notification: {
+      organizerId: ORGANIZER_ID,
+      campaignName: winnerName,
+      poolAmount: poolAmount,
+      startDate,
+      endDate,
+    },
+  };
 };
 
 export const createMockDataForPreviousWeek = async () => {
   try {
-    await runTransaction(db, async (transaction) => {
-      // Generate data for 1 week ago
-      createDataForWeek(transaction, 1);
-      // Generate data for 2 weeks ago
-      createDataForWeek(transaction, 2);
+    const results = await runTransaction(db, async (transaction) => {
+      const week1 = createDataForWeek(transaction, 1);
+      const week2 = createDataForWeek(transaction, 2);
+      return [week1, week2];
     });
+
+    // Send notifications after transaction
+    for (const result of results) {
+      if (result && result.notification) {
+        const { organizerId, campaignName, startDate, endDate } =
+          result.notification;
+        await addNotification(
+          organizerId,
+          'campaign_win',
+          `🎉 Congratulations! Your campaign "${campaignName}" won the weekly voting for this week (${formatDateRange(
+            startDate,
+            endDate
+          )})!`
+        );
+      }
+    }
 
     console.log('Mock data created successfully for past 2 weeks!');
   } catch (error) {

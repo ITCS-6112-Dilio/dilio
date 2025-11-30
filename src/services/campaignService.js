@@ -13,6 +13,7 @@ import {
 } from 'firebase/firestore';
 import app from './firebase';
 import { roundCurrency } from '../utils/formatUtils';
+import { addNotification } from './notificationService';
 
 const db = getFirestore(app);
 
@@ -175,13 +176,11 @@ export const approveCampaign = async (campaignId) => {
   const campaignSnap = await getDoc(campaignDoc);
   const data = campaignSnap.data();
   if (data) {
-    await addDoc(collection(db, 'notifications'), {
-      userId: data.organizerId,
-      type: 'campaign_approved',
-      message: `Your campaign "${data.name}" was approved!`,
-      timestamp: new Date(),
-      read: false,
-    });
+    await addNotification(
+      data.organizerId,
+      'campaign_approved',
+      `Your campaign "${data.name}" was approved!`
+    );
   }
 };
 
@@ -195,13 +194,11 @@ export const rejectCampaign = async (campaignId) => {
   const campaignSnap = await getDoc(campaignDoc);
   const data = campaignSnap.data();
   if (data) {
-    await addDoc(collection(db, 'notifications'), {
-      userId: data.organizerId,
-      type: 'campaign_rejected',
-      message: `Your campaign "${data.name}" was rejected.`,
-      timestamp: new Date(),
-      read: false,
-    });
+    await addNotification(
+      data.organizerId,
+      'campaign_rejected',
+      `Your campaign "${data.name}" was rejected.`
+    );
   }
 };
 
