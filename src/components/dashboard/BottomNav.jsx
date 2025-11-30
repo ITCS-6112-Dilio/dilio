@@ -1,4 +1,4 @@
-﻿// src/components/dashboard/BottomNav.jsx
+// src/components/dashboard/BottomNav.jsx
 import { useUser } from '../../context/UserContext';
 
 const BottomNav = ({ currentView, onNavigate }) => {

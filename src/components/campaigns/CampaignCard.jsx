@@ -1,4 +1,4 @@
-﻿// src/components/campaigns/CampaignCard.jsx
+// src/components/campaigns/CampaignCard.jsx
 import { formatCurrency } from '../../utils/formatUtils';
 const CampaignCard = ({ campaign, editable = false, onEdit }) => {
   const percentage = Math.min((campaign.raised / campaign.goal) * 100, 100);

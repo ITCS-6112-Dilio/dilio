@@ -1,5 +1,5 @@
-﻿// src/components/dashboard/RecentActivity.jsx
-import { useEffect, useState } from 'react';
+// src/components/dashboard/RecentActivity.jsx
+import { useState } from 'react';
 import { formatCurrency } from '../../utils/formatUtils';
 
 const RecentActivity = ({ donations = [], onDelete, onEdit }) => {

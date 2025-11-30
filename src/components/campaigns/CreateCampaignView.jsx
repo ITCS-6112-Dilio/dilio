@@ -1,4 +1,4 @@
-﻿// src/components/campaigns/CreateCampaignView.jsx
+// src/components/campaigns/CreateCampaignView.jsx
 import { useState } from 'react';
 import Input from '../Input';
 import Button from '../Button';

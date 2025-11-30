@@ -16,7 +16,6 @@ const NotificationsView = ({
   };
 
   const unreadNotifications = notifications.filter((n) => !n.read);
-  const readNotifications = notifications.filter((n) => n.read);
 
   const displayedNotifications = showRead ? notifications : unreadNotifications;
 

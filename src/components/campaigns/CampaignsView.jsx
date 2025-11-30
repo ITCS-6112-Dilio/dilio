@@ -1,5 +1,5 @@
-﻿// src/components/campaigns/CampaignsView.jsx
-import { useEffect, useState } from 'react';
+// src/components/campaigns/CampaignsView.jsx
+import { useEffect, useState, useCallback } from 'react';
 import CampaignCard from './CampaignCard';
 import {
   getAllCampaigns,
@@ -21,24 +21,7 @@ const CampaignsView = () => {
   const [currentPage, setCurrentPage] = useState(0);
   const itemsPerPage = 5;
 
-  useEffect(() => {
-    loadCampaigns();
-  }, []);
-
-  useEffect(() => {
-    if (
-      activeTab === 'yours' &&
-      (user.role === 'organizer' || user.role === 'admin')
-    ) {
-      loadOrganizerTotal();
-    }
-  }, [activeTab, user.uid, user.role]);
-
-  useEffect(() => {
-    setCurrentPage(0);
-  }, [searchQuery, activeTab]);
-
-  const loadCampaigns = async () => {
+  const loadCampaigns = useCallback(async () => {
     try {
       const data = await getAllCampaigns();
       setCampaigns(data);
@@ -47,16 +30,33 @@ const CampaignsView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const loadOrganizerTotal = async () => {
+  const loadOrganizerTotal = useCallback(async () => {
     try {
       const total = await getOrganizerTotalRaised(user.uid);
       setOrganizerTotal(total);
     } catch (error) {
       console.error('Error loading organizer total:', error);
     }
-  };
+  }, [user.uid]);
+
+  useEffect(() => {
+    loadCampaigns();
+  }, [loadCampaigns]);
+
+  useEffect(() => {
+    if (
+      activeTab === 'yours' &&
+      (user.role === 'organizer' || user.role === 'admin')
+    ) {
+      loadOrganizerTotal();
+    }
+  }, [activeTab, user.uid, user.role, loadOrganizerTotal]);
+
+  useEffect(() => {
+    setCurrentPage(0);
+  }, [searchQuery, activeTab]);
 
   const yourCampaigns = campaigns.filter((c) => c.organizerId === user.uid);
   const pendingCampaigns = yourCampaigns.filter((c) => c.status === 'pending');

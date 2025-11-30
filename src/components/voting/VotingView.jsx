@@ -1,5 +1,5 @@
-﻿// src/components/voting/VotingView.jsx
-import { useState, useEffect } from 'react';
+// src/components/voting/VotingView.jsx
+import { useState, useEffect, useCallback } from 'react';
 import {
   getCurrentVotingSession,
   submitVote as submitVoteToDb,
@@ -21,12 +21,7 @@ const VotingView = () => {
   const [pastSessions, setPastSessions] = useState([]);
   const [isUpdatingVote, setIsUpdatingVote] = useState(false);
 
-  useEffect(() => {
-    loadVotingSession();
-    loadPastSessions();
-  }, [user.uid]);
-
-  const loadVotingSession = async () => {
+  const loadVotingSession = useCallback(async () => {
     setLoading(true);
     try {
       const sessionData = await getCurrentVotingSession();
@@ -51,16 +46,21 @@ const VotingView = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user.uid]);
 
-  const loadPastSessions = async () => {
+  const loadPastSessions = useCallback(async () => {
     try {
       const past = await getPastVotingSessions(4);
       setPastSessions(past);
     } catch (error) {
       console.error('Error loading past sessions:', error);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadVotingSession();
+    loadPastSessions();
+  }, [user.uid, loadVotingSession, loadPastSessions]);
 
   const handleSubmitVote = async () => {
     if (!selectedCampaign) {

@@ -1,4 +1,4 @@
-﻿// src/components/dashboard/StatsCard.jsx
+// src/components/dashboard/StatsCard.jsx
 const StatsCard = ({ stats }) => {
   const safeTotal = Number.isFinite(stats.totalDonated)
     ? stats.totalDonated

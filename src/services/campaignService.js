@@ -1,4 +1,4 @@
-﻿// src/services/campaignService.js
+// src/services/campaignService.js
 import {
   addDoc,
   collection,

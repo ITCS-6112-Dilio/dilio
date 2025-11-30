@@ -1,6 +1,6 @@
-﻿/* global chrome */
+/* global chrome */
 // src/components/dashboard/Dashboard.jsx
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { auth } from '../../services/firebase';
 import { signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
@@ -33,6 +33,31 @@ import {
   getVotingSessionById,
 } from '../../services/votingService';
 
+const safeChrome = {
+  get: (keys, callback) => {
+    if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+      chrome.storage.local.get(keys, callback);
+    } else {
+      callback({});
+    }
+  },
+  set: (data) => {
+    if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+      chrome.storage.local.set(data);
+    }
+  },
+  remove: (keys) => {
+    if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
+      chrome.storage.local.remove(keys);
+    }
+  },
+  clearBadge: () => {
+    if (typeof chrome !== 'undefined' && chrome?.action?.setBadgeText) {
+      chrome.action.setBadgeText({ text: '' });
+    }
+  },
+};
+
 const Dashboard = () => {
   const navigate = useNavigate();
   const { user, loading: userLoading } = useUser();
@@ -49,60 +74,7 @@ const Dashboard = () => {
   const [sessionsById, setSessionsById] = useState({});
   const [campaignsById, setCampaignsById] = useState({});
 
-  const safeChrome = {
-    get: (keys, callback) => {
-      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        chrome.storage.local.get(keys, callback);
-      } else {
-        callback({});
-      }
-    },
-    set: (data) => {
-      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        chrome.storage.local.set(data);
-      }
-    },
-    remove: (keys) => {
-      if (typeof chrome !== 'undefined' && chrome?.storage?.local) {
-        chrome.storage.local.remove(keys);
-      }
-    },
-    clearBadge: () => {
-      if (typeof chrome !== 'undefined' && chrome?.action?.setBadgeText) {
-        chrome.action.setBadgeText({ text: '' });
-      }
-    },
-  };
-
-  useEffect(() => {
-    if (userLoading || !user) return;
-    loadData();
-    loadAllCampaigns();
-    checkPendingPurchase();
-    fetchNotifications(user.uid).then(setNotifications);
-
-    // Load current voting session for tagging new general-pool donations
-    (async () => {
-      try {
-        const session = await getCurrentVotingSession();
-        setCurrentVotingSession(session);
-      } catch (err) {
-        console.error('Error loading current voting session:', err);
-        setCurrentVotingSession(null);
-      }
-    })();
-  }, [userLoading, user]);
-
-  const loadAllCampaigns = async () => {
-    try {
-      const campaigns = await getAllCampaigns('approved');
-      setAllCampaigns(campaigns);
-    } catch (error) {
-      console.error('Error loading all campaigns:', error);
-    }
-  };
-
-  const checkPendingPurchase = () => {
+  const checkPendingPurchase = useCallback(() => {
     safeChrome.get(['pendingPurchase', 'selectedCampaign'], (result) => {
       if (result.pendingPurchase) {
         const selectedCampaign = result.selectedCampaign || 'general';
@@ -116,9 +88,9 @@ const Dashboard = () => {
         }
       }
     });
-  };
+  }, []);
 
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     if (!user) return;
 
     try {
@@ -159,7 +131,7 @@ const Dashboard = () => {
         setSessionsById({});
       }
 
-      // Load campaigns for non-general donations
+      // Load campaigns for specific donations
       const campaignIds = Array.from(
         new Set(
           userDonations
@@ -196,7 +168,35 @@ const Dashboard = () => {
     } finally {
       setLoading(false);
     }
+  }, [user]);
+
+  const loadAllCampaigns = async () => {
+    try {
+      const campaigns = await getAllCampaigns('approved');
+      setAllCampaigns(campaigns);
+    } catch (error) {
+      console.error('Error loading all campaigns:', error);
+    }
   };
+
+  useEffect(() => {
+    if (userLoading || !user) return;
+    loadData();
+    loadAllCampaigns();
+    checkPendingPurchase();
+    fetchNotifications(user.uid).then(setNotifications);
+
+    // Load current voting session for tagging new general-pool donations
+    (async () => {
+      try {
+        const session = await getCurrentVotingSession();
+        setCurrentVotingSession(session);
+      } catch (err) {
+        console.error('Error loading current voting session:', err);
+        setCurrentVotingSession(null);
+      }
+    })();
+  }, [userLoading, user, checkPendingPurchase, loadData]);
 
   useEffect(() => {
     if (showCampaignSelector) {
@@ -258,7 +258,7 @@ const Dashboard = () => {
       return;
     }
 
-    // For manual donations, use the full amount; for purchases, calculate round-up
+    // Calculate donation amount (full or round-up)
     let donationAmount;
     if (pendingPurchase.isManual) {
       donationAmount = purchaseAmount;

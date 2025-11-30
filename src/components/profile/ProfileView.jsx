@@ -1,12 +1,11 @@
-﻿// src/components/profile/ProfileView.jsx
-import { useEffect, useState } from 'react';
+// src/components/profile/ProfileView.jsx
+import { useEffect, useState, useCallback } from 'react';
 import { updateProfile } from 'firebase/auth';
 import {
   getPendingRoleRequests,
   requestOrganizerRole,
   updateUserRole,
   getUserBadges,
-  BADGE_LABELS,
 } from '../../services/userService';
 import {
   closeVotingSession,
@@ -29,23 +28,16 @@ const ProfileView = ({ onLogout }) => {
   const [activeTab, setActiveTab] = useState('profile');
   const [badges, setBadges] = useState([]);
 
-  useEffect(() => {
-    if (user?.role === 'student') {
-      checkPendingRequest();
-    }
-    loadBadges();
-  }, [user]);
-
-  const loadBadges = async () => {
+  const loadBadges = useCallback(async () => {
     try {
       const userBadges = await getUserBadges(user.uid);
       setBadges(userBadges);
     } catch (error) {
       console.error('Error loading badges:', error);
     }
-  };
+  }, [user.uid]);
 
-  const checkPendingRequest = async () => {
+  const checkPendingRequest = useCallback(async () => {
     try {
       const roleRequests = await getPendingRoleRequests();
       const existingRoleRequest = roleRequests.find(
@@ -55,7 +47,14 @@ const ProfileView = ({ onLogout }) => {
     } catch (error) {
       console.error('Error fetching pending role request:', error);
     }
-  };
+  }, [user.uid]);
+
+  useEffect(() => {
+    if (user?.role === 'student') {
+      checkPendingRequest();
+    }
+    loadBadges();
+  }, [user, checkPendingRequest, loadBadges]);
 
   const handleSave = async () => {
     if (!displayName.trim()) {
@@ -512,7 +511,6 @@ const ProfileView = ({ onLogout }) => {
 
       {activeTab === 'badges' && (
         <div>
-          {/* Add these new styles at the top of component if not present */}
           {badges.length === 0 ? (
             <div
               style={{

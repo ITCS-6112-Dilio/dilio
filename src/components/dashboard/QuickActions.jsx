@@ -1,4 +1,4 @@
-﻿// src/components/dashboard/QuickActions.jsx
+// src/components/dashboard/QuickActions.jsx
 const QuickActions = ({ onManualDonation, onCreateCampaign }) => {
   const styles = {
     section: {

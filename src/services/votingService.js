@@ -114,7 +114,7 @@ export const getPastVotingSessions = async (count = 4) => {
       ...doc.data(),
     }));
 
-    // Sort by startDate descending to ensure correct order (especially for mock data)
+    // Sort by startDate descending
     return sessions.sort((a, b) => b.startDate - a.startDate);
   } catch (error) {
     console.error('Error getting past sessions:', error);
@@ -129,7 +129,7 @@ export const getPastVotingSessions = async (count = 4) => {
  */
 const getRandomCampaigns = async (count = 5) => {
   try {
-    // Get all approved campaigns
+    // Get approved campaigns
     const campaignsQuery = query(
       collection(db, 'campaigns'),
       where('status', '==', 'approved')
@@ -208,13 +208,13 @@ export const submitVote = async (userId, campaignId, sessionId) => {
     let oldCampaignId = null;
     let voteDocId = null;
 
-    // If user has voted, get the old campaign ID and vote doc ID
+    // If user has voted, get old details
     if (!existingVotes.empty) {
       const oldVote = existingVotes.docs[0];
       oldCampaignId = oldVote.data().campaignId;
       voteDocId = oldVote.id;
 
-      // If voting for the same campaign, no need to update
+      // Same campaign, no update needed
       if (oldCampaignId === campaignId) {
         return true;
       }
@@ -333,7 +333,7 @@ export const closeVotingSession = async (sessionId) => {
       throw new Error('Session is already closed');
     }
 
-    // 1. Determine Winner (for record keeping)
+    // 1. Determine Winner
     let winner = null;
     let maxVotes = -1;
 

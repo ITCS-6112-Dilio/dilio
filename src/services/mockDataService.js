@@ -1,10 +1,8 @@
 import {
-  addDoc,
   collection,
   doc,
   getFirestore,
   runTransaction,
-  setDoc,
   increment,
   Timestamp,
 } from 'firebase/firestore';
@@ -46,7 +44,7 @@ const createDataForWeek = (transaction, offsetWeeks) => {
   const startDate = startDateObj.getTime();
   const endDate = endDateObj.getTime();
 
-  // 1. Create 5 Mock Campaigns
+  // Create 5 Mock Campaigns
   const campaigns = [];
   for (let i = 1; i <= 5; i++) {
     const campaignRef = doc(collection(db, 'campaigns'));
@@ -65,7 +63,7 @@ const createDataForWeek = (transaction, offsetWeeks) => {
     campaigns.push({ id: campaignRef.id, ...campaignData, ref: campaignRef });
   }
 
-  // 2. Create Donations (General + Specific)
+  // Create Donations (General + Specific)
   let poolAmount = 0;
   const donations = [];
 
@@ -121,7 +119,7 @@ const createDataForWeek = (transaction, offsetWeeks) => {
     addDonation(ORGANIZER_ID, 100.0, campaigns[4].id);
   }
 
-  // 3. Create Voting Session (Closed)
+  // Create Voting Session (Closed)
   const sessionRef = doc(db, 'votingSessions', weekId);
 
   // Calculate votes
@@ -145,7 +143,7 @@ const createDataForWeek = (transaction, offsetWeeks) => {
     })),
   };
 
-  // Assign votes in session object
+  // Assign votes
   if (offsetWeeks === 1) {
     sessionData.campaigns[0].votes = 2;
     sessionData.campaigns[1].votes = 1;
@@ -158,7 +156,7 @@ const createDataForWeek = (transaction, offsetWeeks) => {
 
   transaction.set(sessionRef, sessionData);
 
-  // 4. Create Vote Documents
+  // Create Vote Documents
   const addVote = (userId, campaignId) => {
     const voteRef = doc(collection(db, 'votes'));
     transaction.set(voteRef, {
@@ -217,9 +215,9 @@ const createDataForWeek = (transaction, offsetWeeks) => {
     };
   });
 
-  // 5. Create Weekly Report (since session is closed)
+  // Create Weekly Report
   const reportRef = doc(db, 'weeklyReports', weekId);
-  const winnerId = offsetWeeks === 1 ? campaigns[0].id : campaigns[2].id; // Arbitrary winner for tie in week 2
+  const winnerId = offsetWeeks === 1 ? campaigns[0].id : campaigns[2].id; // Arbitrary winner for tie
   const winnerName = offsetWeeks === 1 ? campaigns[0].name : campaigns[2].name;
 
   transaction.set(reportRef, {

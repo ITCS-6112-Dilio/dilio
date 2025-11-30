@@ -1,4 +1,4 @@
-﻿// src/components/admin/AdminView.jsx
+// src/components/admin/AdminView.jsx
 import { useEffect, useState } from 'react';
 import {
   approveRoleRequest,
@@ -522,7 +522,6 @@ const AdminView = ({ onBack }) => {
             })
           )}
 
-          {/*  new code start here */}
           <div style={{ marginTop: 24 }}>
             <h3 style={{ fontSize: 16, fontWeight: 500, marginBottom: 8 }}>
               Manage User Roles
@@ -611,7 +610,6 @@ const AdminView = ({ onBack }) => {
               </table>
             )}
           </div>
-          {/*  new code end here */}
         </div>
       )}
 

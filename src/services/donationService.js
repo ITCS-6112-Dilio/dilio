@@ -1,4 +1,4 @@
-﻿// src/services/donationService.js
+// src/services/donationService.js
 import {
   addDoc,
   collection,
