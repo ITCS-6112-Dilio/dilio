@@ -95,10 +95,14 @@ const CampaignCard = ({ campaign, editable = false, onEdit }) => {
       </div>
       <div style={styles.stats}>
         <span style={styles.statLabel}>
-          <span style={styles.statValue}>{formatCurrency(campaign.raised)}</span> raised
+          <span style={styles.statValue}>
+            {formatCurrency(campaign.raised)}
+          </span>{' '}
+          raised
         </span>
         <span style={styles.statLabel}>
-          Goal: <span style={styles.statValue}>{formatCurrency(campaign.goal)}</span>
+          Goal:{' '}
+          <span style={styles.statValue}>{formatCurrency(campaign.goal)}</span>
         </span>
       </div>
       {editable && (

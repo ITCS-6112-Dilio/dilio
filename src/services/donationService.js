@@ -156,10 +156,7 @@ export const updateDonation = async (donationId, updates) => {
       if (newAmount !== oldAmount) {
         const difference = roundCurrency(newAmount - oldAmount);
 
-        if (
-          donationData.campaignId &&
-          donationData.campaignId !== 'general'
-        ) {
+        if (donationData.campaignId && donationData.campaignId !== 'general') {
           const campaignRef = doc(db, 'campaigns', donationData.campaignId);
           transaction.update(campaignRef, {
             raised: increment(difference),
@@ -204,7 +201,9 @@ export const calculateStats = (donations = []) => {
   });
 
   // 1) Total donated
-  const totalDonated = roundCurrency(normalized.reduce((sum, d) => sum + d.amount, 0));
+  const totalDonated = roundCurrency(
+    normalized.reduce((sum, d) => sum + d.amount, 0)
+  );
 
   // 2) Points based on total donated
   //    e.g., 10 points per $1 donated

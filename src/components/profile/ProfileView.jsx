@@ -436,7 +436,11 @@ const ProfileView = ({ onLogout }) => {
             </button>
 
             <button
-              style={{ ...styles.devButton, ...styles.migrateBtn, background: 'linear-gradient(135deg, #f59e0b, #d97706)' }}
+              style={{
+                ...styles.devButton,
+                ...styles.migrateBtn,
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              }}
               onClick={handleCreateMockData}
               disabled={loading}
               onMouseEnter={(e) =>
@@ -489,7 +493,11 @@ const ProfileView = ({ onLogout }) => {
             </button>
 
             <button
-              style={{ ...styles.devButton, ...styles.roleBtn, background: '#ef4444' }}
+              style={{
+                ...styles.devButton,
+                ...styles.roleBtn,
+                background: '#ef4444',
+              }}
               onClick={handleClosePool}
               onMouseEnter={(e) =>
                 (e.target.style.transform = 'translateY(-2px)')
@@ -589,8 +597,8 @@ const ProfileView = ({ onLogout }) => {
                   >
                     {badge.awardedAt?.seconds
                       ? new Date(
-                        badge.awardedAt.seconds * 1000
-                      ).toLocaleDateString()
+                          badge.awardedAt.seconds * 1000
+                        ).toLocaleDateString()
                       : ''}
                   </div>
                 </div>

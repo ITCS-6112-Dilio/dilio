@@ -314,9 +314,9 @@ const VotingView = () => {
               const percentage =
                 session.totalVotes > 0
                   ? (
-                    ((campaign.votes || 0) / session.totalVotes) *
-                    100
-                  ).toFixed(1)
+                      ((campaign.votes || 0) / session.totalVotes) *
+                      100
+                    ).toFixed(1)
                   : 0;
               const isUserVote = campaign.id === selectedCampaign;
               return (

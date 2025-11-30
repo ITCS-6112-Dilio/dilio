@@ -109,7 +109,10 @@ export const getPastVotingSessions = async (count = 4) => {
     );
     const snapshot = await getDocs(sessionsQuery);
 
-    const sessions = snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+    const sessions = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
     // Sort by startDate descending to ensure correct order (especially for mock data)
     return sessions.sort((a, b) => b.startDate - a.startDate);
@@ -352,8 +355,8 @@ export const closeVotingSession = async (sessionId) => {
 
     // 3. Calculate Distribution (Community Base Model)
     // Option 1: 30% Base Pool (Equal split), 70% Performance Pool (Vote split)
-    const BASE_POOL_PERCENTAGE = 0.30;
-    const PERFORMANCE_POOL_PERCENTAGE = 0.70;
+    const BASE_POOL_PERCENTAGE = 0.3;
+    const PERFORMANCE_POOL_PERCENTAGE = 0.7;
 
     const basePool = poolTotal * BASE_POOL_PERCENTAGE;
     const performancePool = poolTotal * PERFORMANCE_POOL_PERCENTAGE;
@@ -361,17 +364,20 @@ export const closeVotingSession = async (sessionId) => {
     const campaignCount = sessionData.campaigns.length;
     const totalVotes = sessionData.totalVotes || 0;
 
-    const baseSharePerCampaign = campaignCount > 0 ? basePool / campaignCount : 0;
+    const baseSharePerCampaign =
+      campaignCount > 0 ? basePool / campaignCount : 0;
 
     // Calculate allocation for each campaign
     const campaignAllocations = sessionData.campaigns.map((c) => {
       const voteShare = totalVotes > 0 ? (c.votes || 0) / totalVotes : 0;
       const performanceShare = performancePool * voteShare;
-      const totalAllocation = roundCurrency(baseSharePerCampaign + performanceShare);
+      const totalAllocation = roundCurrency(
+        baseSharePerCampaign + performanceShare
+      );
 
       return {
         ...c,
-        allocation: totalAllocation
+        allocation: totalAllocation,
       };
     });
 
@@ -405,13 +411,13 @@ export const closeVotingSession = async (sessionId) => {
         startDate: sessionData.startDate,
         endDate: sessionData.endDate,
         closedAt: serverTimestamp(),
-        campaigns: campaignAllocations.map(c => ({
+        campaigns: campaignAllocations.map((c) => ({
           id: c.id,
           name: c.name,
           votes: c.votes || 0,
           category: c.category || 'General',
-          earned: c.allocation // Store the earned amount
-        }))
+          earned: c.allocation, // Store the earned amount
+        })),
       });
     });
 

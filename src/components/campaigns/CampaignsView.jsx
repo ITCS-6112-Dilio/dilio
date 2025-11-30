@@ -342,7 +342,9 @@ const CampaignsView = () => {
             <div style={styles.statTitle}>
               Total Raised Across All Campaigns
             </div>
-            <div style={styles.statAmount}>{formatCurrency(organizerTotal)}</div>
+            <div style={styles.statAmount}>
+              {formatCurrency(organizerTotal)}
+            </div>
             <div style={styles.statSubtext}>
               {yourCampaigns.length} campaign
               {yourCampaigns.length !== 1 ? 's' : ''} created
