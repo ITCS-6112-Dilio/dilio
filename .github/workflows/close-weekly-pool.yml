@@ -1,12 +1,9 @@
 name: Close Weekly Pool
 on:
   schedule:
-    # 11:59 PM EST Saturday (04:59 AM UTC Sunday)
-    - cron: '59 4 * * 0'
-    # Fallback: 12:03 AM EST Sunday (05:03 AM UTC Sunday)
-    - cron: '3 5 * * 0'
+    - cron: '59 4 * * 0'  # Saturday 11:59 PM EST
+    - cron: '3 5 * * 0'   # Sunday 12:03 AM EST
   workflow_dispatch:
-
 jobs:
   close-pool:
     runs-on: ubuntu-latest
