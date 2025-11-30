@@ -1,0 +1,23 @@
+name: Close Weekly Pool
+on:
+  schedule:
+    # 11:59 PM EST Saturday (04:59 AM UTC Sunday)
+    - cron: '59 4 * * 0'
+    # Fallback: 12:03 AM EST Sunday (05:03 AM UTC Sunday)
+    - cron: '3 5 * * 0'
+  workflow_dispatch:
+
+jobs:
+  close-pool:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: 20
+      - name: Install dependencies
+        run: npm install firebase-admin
+      - name: Create service account file
+        run: echo '${{ secrets.FIREBASE_KEY }}' > dilio-39ba5-firebase-adminsdk-fbsvc-bfea2c47b1.json
+      - name: Run closeWeeklyPool.js
+        run: node scheduled-tasks/closeWeeklyPool.js
