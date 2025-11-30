@@ -18,7 +18,7 @@ import { useUser } from '../../context/UserContext';
 import { auth, db } from '../../services/firebase';
 import { doc, updateDoc, collection, getDocs } from 'firebase/firestore';
 
-const ProfileView = ({ onLogout }) => {
+const ProfileView = ({ onDataChange }) => {
   const { user, setUser } = useUser();
   const [displayName, setDisplayName] = useState(user.displayName || '');
   const [loading, setLoading] = useState(false);
@@ -123,9 +123,8 @@ const ProfileView = ({ onLogout }) => {
     try {
       const session = await getCurrentVotingSession();
       const result = await closeVotingSession(session.id);
-      alert(
-        `✅ Pool closed! Winner: ${result.winner.name}, Amount: $${result.poolTotal}`
-      );
+      alert(`✅ Pool closed! Winner: ${result.winner.name}`);
+      if (onDataChange) onDataChange();
     } catch (error) {
       alert('Error closing pool: ' + error.message);
     } finally {
@@ -173,6 +172,7 @@ const ProfileView = ({ onLogout }) => {
       alert(
         '✅ Migration complete! Campaign totals have been recalculated. Refresh to see changes.'
       );
+      if (onDataChange) onDataChange();
     } catch (error) {
       console.error('❌ Migration error:', error);
       alert('Migration failed: ' + error.message);
@@ -423,34 +423,6 @@ const ProfileView = ({ onLogout }) => {
             <div style={styles.devTitle}>🔧 Developer Tools</div>
 
             <button
-              style={{ ...styles.devButton, ...styles.migrateBtn }}
-              onClick={handleMigrateDonations}
-              disabled={migrating}
-              onMouseEnter={(e) =>
-                (e.target.style.transform = 'translateY(-2px)')
-              }
-              onMouseLeave={(e) => (e.target.style.transform = 'translateY(0)')}
-            >
-              {migrating ? 'Migrating...' : '🔄 Migrate Campaign Totals'}
-            </button>
-
-            <button
-              style={{
-                ...styles.devButton,
-                ...styles.migrateBtn,
-                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-              }}
-              onClick={handleCreateMockData}
-              disabled={loading}
-              onMouseEnter={(e) =>
-                (e.target.style.transform = 'translateY(-2px)')
-              }
-              onMouseLeave={(e) => (e.target.style.transform = 'translateY(0)')}
-            >
-              🛠️ Create Mock Data (Past 2 Weeks)
-            </button>
-
-            <button
               style={{ ...styles.devButton, ...styles.roleBtn }}
               onClick={handleMakeAdmin}
               onMouseEnter={(e) =>
@@ -494,6 +466,22 @@ const ProfileView = ({ onLogout }) => {
             <button
               style={{
                 ...styles.devButton,
+                ...styles.migrateBtn,
+                background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+              }}
+              onClick={handleCreateMockData}
+              disabled={loading}
+              onMouseEnter={(e) =>
+                (e.target.style.transform = 'translateY(-2px)')
+              }
+              onMouseLeave={(e) => (e.target.style.transform = 'translateY(0)')}
+            >
+              🛠️ Create Mock Data (Past 2 Weeks)
+            </button>
+
+            <button
+              style={{
+                ...styles.devButton,
                 ...styles.roleBtn,
                 background: '#ef4444',
               }}
@@ -504,6 +492,18 @@ const ProfileView = ({ onLogout }) => {
               onMouseLeave={(e) => (e.target.style.transform = 'translateY(0)')}
             >
               ⚠️ Close Weekly Pool
+            </button>
+
+            <button
+              style={{ ...styles.devButton, ...styles.migrateBtn }}
+              onClick={handleMigrateDonations}
+              disabled={migrating}
+              onMouseEnter={(e) =>
+                (e.target.style.transform = 'translateY(-2px)')
+              }
+              onMouseLeave={(e) => (e.target.style.transform = 'translateY(0)')}
+            >
+              {migrating ? 'Migrating...' : '🔄 Migrate Campaign Totals'}
             </button>
           </div>
         </>

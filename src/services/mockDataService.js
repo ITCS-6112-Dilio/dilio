@@ -200,8 +200,8 @@ const createDataForWeek = (transaction, offsetWeeks) => {
             ? 1
             : 0
         : c.id === campaigns[0].id ||
-          c.id === campaigns[1].id ||
-          c.id === campaigns[2].id
+            c.id === campaigns[1].id ||
+            c.id === campaigns[2].id
           ? 1
           : 0;
 

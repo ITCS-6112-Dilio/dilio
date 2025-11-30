@@ -334,6 +334,10 @@ const Dashboard = () => {
       setPendingPurchase(null);
       setShowCampaignSelector(false);
 
+      // Refresh data to update campaign status and permissions
+      loadData();
+      loadAllCampaigns();
+
       alert(
         'Thank you! Donation of $' +
           donationAmount.toFixed(2) +
@@ -452,6 +456,10 @@ const Dashboard = () => {
 
         return updated;
       });
+
+      // Refresh data to update campaign status and permissions
+      loadData();
+      loadAllCampaigns();
 
       alert(
         `Thank you! Donation of $${finalAmount.toFixed(2)} recorded for ${campaignName}!`
@@ -1083,7 +1091,14 @@ const Dashboard = () => {
       {currentView === 'admin' && (
         <AdminView onBack={() => setCurrentView('dashboard')} />
       )}
-      {currentView === 'profile' && <ProfileView onLogout={handleLogout} />}
+      {currentView === 'profile' && (
+        <ProfileView
+          onDataChange={() => {
+            loadData();
+            loadAllCampaigns();
+          }}
+        />
+      )}
       {currentView === 'notifications' && (
         <NotificationsView
           userId={user.uid}

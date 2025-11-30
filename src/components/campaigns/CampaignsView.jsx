@@ -58,6 +58,8 @@ const CampaignsView = () => {
     setCurrentPage(0);
   }, [searchQuery, activeTab]);
 
+  const activeCampaigns = campaigns.filter((c) => c.status === 'approved');
+
   const yourCampaigns = campaigns.filter((c) => c.organizerId === user.uid);
   const pendingCampaigns = yourCampaigns.filter((c) => c.status === 'pending');
   const approvedCampaigns = yourCampaigns.filter(
@@ -66,8 +68,9 @@ const CampaignsView = () => {
   const rejectedCampaigns = yourCampaigns.filter(
     (c) => c.status === 'rejected'
   );
-
-  const activeCampaigns = campaigns.filter((c) => c.status === 'approved');
+  const yourCompletedCampaigns = yourCampaigns.filter(
+    (c) => c.status === 'completed'
+  );
 
   const filterCampaigns = (campaignList) => {
     if (!searchQuery.trim()) return campaignList;
@@ -88,6 +91,8 @@ const CampaignsView = () => {
       return filterCampaigns(pendingCampaigns);
     if (yourCampaignsStatus === 'approved')
       return filterCampaigns(approvedCampaigns);
+    if (yourCampaignsStatus === 'completed')
+      return filterCampaigns(yourCompletedCampaigns);
     return filterCampaigns(rejectedCampaigns);
   };
 
@@ -202,9 +207,11 @@ const CampaignsView = () => {
     },
     tabButton: {
       fontWeight: 400,
-      borderBottom: 'none',
       background: 'none',
-      border: 'none',
+      borderTop: 'none',
+      borderLeft: 'none',
+      borderRight: 'none',
+      borderBottom: '2px solid transparent',
       fontSize: '18px',
       cursor: 'pointer',
       fontFamily:
@@ -373,6 +380,17 @@ const CampaignsView = () => {
               onClick={() => setYourCampaignsStatus('approved')}
             >
               Approved ({approvedCampaigns.length})
+            </button>
+            <button
+              style={{
+                ...styles.subTabButton,
+                ...(yourCampaignsStatus === 'completed'
+                  ? styles.subTabButtonActive
+                  : {}),
+              }}
+              onClick={() => setYourCampaignsStatus('completed')}
+            >
+              Completed ({yourCompletedCampaigns.length})
             </button>
             <button
               style={{

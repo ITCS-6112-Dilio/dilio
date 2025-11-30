@@ -10,6 +10,7 @@ import {
   updateDoc,
   increment,
   where,
+  serverTimestamp,
 } from 'firebase/firestore';
 import app from './firebase';
 import { roundCurrency } from '../utils/formatUtils';
@@ -17,7 +18,7 @@ import { addNotification } from './notificationService';
 
 const db = getFirestore(app);
 
-const VALID_STATUSES = ['approved', 'pending', 'rejected'];
+const VALID_STATUSES = ['approved', 'pending', 'rejected', 'completed'];
 
 // CAMPAIGN MANAGEMENT
 export const createCampaign = async (campaign) => {
@@ -241,4 +242,64 @@ export const getUserDirectDonationsTotal = async (userId) => {
     const data = d.data();
     return roundCurrency(sum + (Number(data.amount) || 0));
   }, 0);
+};
+
+/**
+ * Checks if a campaign has reached its goal and updates status to 'completed' if so.
+ * MUST be called within a transaction.
+ * @param {object} transaction - Firestore transaction object
+ * @param {string} campaignId - Campaign ID
+ * @param {number} additionalAmount - Amount being added to raised total
+ * @returns {Promise<boolean>} - True if campaign was marked completed
+ */
+export const checkAndCompleteCampaign = async (
+  transaction,
+  campaignId,
+  additionalAmount
+) => {
+  const campaignRef = doc(db, 'campaigns', campaignId);
+  const campaignSnap = await transaction.get(campaignRef);
+
+  if (!campaignSnap.exists()) {
+    throw new Error('Campaign not found');
+  }
+
+  const data = campaignSnap.data();
+  const currentRaised = Number(data.raised) || 0;
+  const newRaised = roundCurrency(currentRaised + additionalAmount);
+  const goal = Number(data.goal) || 0;
+
+  // Check if goal reached and not already completed
+  if (newRaised >= goal && data.status !== 'completed') {
+    transaction.update(campaignRef, {
+      status: 'completed',
+      completedAt: serverTimestamp(),
+    });
+    return true;
+  }
+
+  return false;
+};
+
+/**
+ * Sends a notification to the organizer that their campaign is completed.
+ * Should be called AFTER the transaction commits.
+ * @param {string} campaignId - Campaign ID
+ */
+export const notifyCampaignCompletion = async (campaignId) => {
+  try {
+    const campaignSnap = await getDoc(doc(db, 'campaigns', campaignId));
+    if (campaignSnap.exists()) {
+      const data = campaignSnap.data();
+      if (data.organizerId) {
+        await addNotification(
+          data.organizerId,
+          'campaign_completed',
+          `🎉 Goal Reached! Your campaign "${data.name}" has reached its goal!`
+        );
+      }
+    }
+  } catch (error) {
+    console.error('Error sending completion notification:', error);
+  }
 };

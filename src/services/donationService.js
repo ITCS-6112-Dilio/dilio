@@ -13,6 +13,10 @@ import {
 } from 'firebase/firestore';
 import app from './firebase';
 import { roundCurrency } from '../utils/formatUtils';
+import {
+  checkAndCompleteCampaign,
+  notifyCampaignCompletion,
+} from './campaignService';
 
 const db = getFirestore(app);
 
@@ -23,7 +27,7 @@ export const saveDonation = async (donation) => {
     const roundedAmount = roundCurrency(donation.amount);
 
     // Use a transaction to ensure atomicity
-    const donationId = await runTransaction(db, async (transaction) => {
+    const result = await runTransaction(db, async (transaction) => {
       const donationData = {
         ...donation,
         amount: roundedAmount,
@@ -32,6 +36,20 @@ export const saveDonation = async (donation) => {
 
       // Update campaign raised amount if donation is to a specific campaign
       if (donation.campaignId && donation.campaignId !== 'general') {
+        // Check if campaign is completed (READ first)
+        const isCompleted = await checkAndCompleteCampaign(
+          transaction,
+          donation.campaignId,
+          roundedAmount
+        );
+
+        if (isCompleted) {
+          // We can't send notification here because we are in a transaction
+          // We'll return a flag to send it after
+          donationData.campaignCompleted = true;
+        }
+
+        // Update campaign raised amount (WRITE second)
         const campaignRef = doc(db, 'campaigns', donation.campaignId);
         transaction.update(campaignRef, {
           raised: increment(roundedAmount),
@@ -56,10 +74,18 @@ export const saveDonation = async (donation) => {
       const donationRef = doc(collection(db, 'donations'));
       transaction.set(donationRef, donationData);
 
-      return donationRef.id;
+      return {
+        id: donationRef.id,
+        campaignCompleted: donationData.campaignCompleted,
+      };
     });
 
-    return donationId;
+    // Send completion notification if needed
+    if (result.campaignCompleted && donation.campaignId) {
+      await notifyCampaignCompletion(donation.campaignId);
+    }
+
+    return result.id;
   } catch (error) {
     console.error('Error saving donation:', error);
     throw error;

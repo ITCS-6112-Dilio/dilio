@@ -20,6 +20,7 @@ import { db } from './firebase';
 import { getTotalForVotingSession } from './donationService';
 import { roundCurrency, formatDateRange } from '../utils/formatUtils';
 import { addNotification } from './notificationService';
+import { notifyCampaignCompletion } from './campaignService';
 
 /**
  * Get a voting session by its document ID
@@ -355,7 +356,7 @@ export const closeVotingSession = async (sessionId) => {
     const poolTotal = roundCurrency(rawPoolTotal);
 
     // 3. Calculate Distribution (Community Base Model)
-    // Option 1: 30% Base Pool (Equal split), 70% Performance Pool (Vote split)
+    // Distribution Option: 30% Base Pool (Equal split), 70% Performance Pool (Vote split)
     const BASE_POOL_PERCENTAGE = 0.3;
     const PERFORMANCE_POOL_PERCENTAGE = 0.7;
 
@@ -383,44 +384,99 @@ export const closeVotingSession = async (sessionId) => {
     });
 
     // 4. Close Session & Transfer Funds (Transaction)
-    await runTransaction(db, async (transaction) => {
-      // Update All Campaigns with their allocation
-      campaignAllocations.forEach((c) => {
-        const campaignRef = doc(db, 'campaigns', c.id);
-        transaction.update(campaignRef, {
-          raised: increment(c.allocation),
+    const completedCampaignIds = await runTransaction(
+      db,
+      async (transaction) => {
+        // Step 1: READ all campaign data first
+        const campaignReads = await Promise.all(
+          campaignAllocations.map(async (c) => {
+            const campaignRef = doc(db, 'campaigns', c.id);
+            const campaignSnap = await transaction.get(campaignRef);
+            if (!campaignSnap.exists()) {
+              throw new Error(`Campaign ${c.id} not found`);
+            }
+            return {
+              id: c.id,
+              ref: campaignRef,
+              data: campaignSnap.data(),
+              allocation: c.allocation,
+            };
+          })
+        );
+
+        // Step 2: Calculate updates and completion status
+        const completedIds = [];
+        const updates = [];
+
+        for (const item of campaignReads) {
+          const currentRaised = Number(item.data.raised) || 0;
+          const newRaised = roundCurrency(currentRaised + item.allocation);
+          const goal = Number(item.data.goal) || 0;
+          const isCompleted =
+            newRaised >= goal && item.data.status !== 'completed';
+
+          if (isCompleted) {
+            completedIds.push(item.id);
+          }
+
+          updates.push({
+            ref: item.ref,
+            newRaised,
+            isCompleted,
+          });
+        }
+
+        // Step 3: WRITE all updates
+        for (const update of updates) {
+          const updateData = {
+            raised: update.newRaised,
+          };
+          if (update.isCompleted) {
+            updateData.status = 'completed';
+            updateData.completedAt = serverTimestamp();
+          }
+          transaction.update(update.ref, updateData);
+        }
+
+        // Update Session
+        transaction.update(sessionRef, {
+          active: false,
+          winnerId: winner.id,
+          finalPoolAmount: poolTotal,
+          closedAt: serverTimestamp(),
         });
-      });
 
-      // Update Session
-      transaction.update(sessionRef, {
-        active: false,
-        winnerId: winner.id,
-        finalPoolAmount: poolTotal,
-        closedAt: serverTimestamp(),
-      });
+        // Create Weekly Report
+        const reportRef = doc(db, 'weeklyReports', sessionData.weekId);
+        transaction.set(reportRef, {
+          weekId: sessionData.weekId,
+          sessionId: sessionId,
+          winnerId: winner.id,
+          winnerName: winner.name,
+          totalAmount: poolTotal,
+          totalVotes: totalVotes,
+          startDate: sessionData.startDate,
+          endDate: sessionData.endDate,
+          closedAt: serverTimestamp(),
+          campaigns: campaignAllocations.map((c) => ({
+            id: c.id,
+            name: c.name,
+            votes: c.votes || 0,
+            category: c.category || 'General',
+            earned: c.allocation, // Store the earned amount
+          })),
+        });
 
-      // Create Weekly Report
-      const reportRef = doc(db, 'weeklyReports', sessionData.weekId);
-      transaction.set(reportRef, {
-        weekId: sessionData.weekId,
-        sessionId: sessionId,
-        winnerId: winner.id,
-        winnerName: winner.name,
-        totalAmount: poolTotal,
-        totalVotes: totalVotes,
-        startDate: sessionData.startDate,
-        endDate: sessionData.endDate,
-        closedAt: serverTimestamp(),
-        campaigns: campaignAllocations.map((c) => ({
-          id: c.id,
-          name: c.name,
-          votes: c.votes || 0,
-          category: c.category || 'General',
-          earned: c.allocation, // Store the earned amount
-        })),
-      });
-    });
+        return completedIds;
+      }
+    );
+
+    // Notify Completed Campaigns
+    if (completedCampaignIds && completedCampaignIds.length > 0) {
+      for (const campaignId of completedCampaignIds) {
+        await notifyCampaignCompletion(campaignId);
+      }
+    }
 
     // 5. Notify the Winner (After Transaction)
     try {
