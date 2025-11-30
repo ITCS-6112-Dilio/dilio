@@ -2,7 +2,6 @@ name: Close Weekly Pool
 on:
   schedule:
     - cron: '59 4 * * 0'  # Saturday 11:59 PM EST
-    - cron: '3 5 * * 0'   # Sunday 12:03 AM EST
   workflow_dispatch:
 jobs:
   close-pool:
