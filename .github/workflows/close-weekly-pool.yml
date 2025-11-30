@@ -1,10 +1,10 @@
-name: Notify Voting Session Ending
+name: Close Weekly Pool
 on:
   schedule:
-    - cron: '27 2 * * 6'  # Saturday 09:27 PM EST
+    - cron: '59 4 * * 0'  # Saturday 11:59 PM EST
   workflow_dispatch:
 jobs:
-  notify-voting-end:
+  close-pool:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -15,5 +15,5 @@ jobs:
         run: npm install firebase-admin
       - name: Create service account file
         run: echo '${{ secrets.FIREBASE_KEY }}' > dilio-39ba5-firebase-adminsdk-fbsvc-bfea2c47b1.json
-      - name: Run notifyVotingEnd.js
-        run: node scheduled-tasks/notifyVotingEnd.js
+      - name: Run closeWeeklyPool.js
+        run: node scheduled-tasks/closeWeeklyPool.js
