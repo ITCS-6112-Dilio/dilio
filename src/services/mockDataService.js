@@ -5,6 +5,7 @@ import {
     getFirestore,
     runTransaction,
     setDoc,
+    increment,
     Timestamp,
 } from 'firebase/firestore';
 import app from './firebase';
@@ -177,6 +178,32 @@ const createDataForWeek = (transaction, offsetWeeks) => {
         addVote(ORGANIZER_ID, campaigns[2].id);
     }
 
+    // Calculate Distribution (Community Base Model)
+    const BASE_POOL_PERCENTAGE = 0.30;
+    const PERFORMANCE_POOL_PERCENTAGE = 0.70;
+
+    const basePool = poolAmount * BASE_POOL_PERCENTAGE;
+    const performancePool = poolAmount * PERFORMANCE_POOL_PERCENTAGE;
+    const campaignCount = campaigns.length;
+
+    const baseSharePerCampaign = campaignCount > 0 ? basePool / campaignCount : 0;
+
+    const campaignAllocations = campaigns.map(c => {
+        const votes = offsetWeeks === 1
+            ? (c.id === campaigns[0].id ? 2 : (c.id === campaigns[1].id ? 1 : 0))
+            : (c.id === campaigns[0].id || c.id === campaigns[1].id || c.id === campaigns[2].id ? 1 : 0);
+
+        const voteShare = 3 > 0 ? votes / 3 : 0; // Total votes is hardcoded to 3 in this mock
+        const performanceShare = performancePool * voteShare;
+        const allocation = Number((baseSharePerCampaign + performanceShare).toFixed(2));
+
+        return {
+            ...c,
+            votes,
+            earned: allocation
+        };
+    });
+
     // 5. Create Weekly Report (since session is closed)
     const reportRef = doc(db, 'weeklyReports', weekId);
     const winnerId = offsetWeeks === 1 ? campaigns[0].id : campaigns[2].id; // Arbitrary winner for tie in week 2
@@ -191,14 +218,19 @@ const createDataForWeek = (transaction, offsetWeeks) => {
         startDate: startDate,
         endDate: endDate,
         closedAt: new Date(endDate),
-        campaigns: campaigns.map(c => ({
+        campaigns: campaignAllocations.map(c => ({
             id: c.id,
             name: c.name,
-            votes: offsetWeeks === 1
-                ? (c.id === campaigns[0].id ? 2 : (c.id === campaigns[1].id ? 1 : 0))
-                : (c.id === campaigns[0].id || c.id === campaigns[1].id || c.id === campaigns[2].id ? 1 : 0),
-            category: c.category || 'General'
+            votes: c.votes,
+            category: c.category || 'General',
+            earned: c.earned
         }))
+    });
+
+    // Update campaign raised amounts in mock data
+    campaignAllocations.forEach(c => {
+        const campaignRef = c.ref; // We stored ref earlier
+        transaction.update(campaignRef, { raised: increment(c.earned) });
     });
 
     return weekId;

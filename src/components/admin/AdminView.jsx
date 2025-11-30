@@ -708,6 +708,7 @@ const AdminView = ({ onBack }) => {
                                     <th style={styles.breakdownHeader}>Campaign</th>
                                     <th style={styles.breakdownHeader}>Votes</th>
                                     <th style={styles.breakdownHeader}>%</th>
+                                    <th style={{ ...styles.breakdownHeader, textAlign: 'right' }}>Earned</th>
                                   </tr>
                                 </thead>
                                 <tbody>
@@ -727,15 +728,17 @@ const AdminView = ({ onBack }) => {
                                       return (
                                         <tr key={campaign.id}>
                                           <td style={styles.breakdownCell}>
+                                            {campaign.id === report.winnerId && '🏆 '}
                                             {campaign.name}
-                                            {campaign.id === report.winnerId &&
-                                              ' 🏆'}
                                           </td>
                                           <td style={styles.breakdownCell}>
                                             {campaign.votes || 0}
                                           </td>
                                           <td style={styles.breakdownCell}>
                                             {percentage}%
+                                          </td>
+                                          <td style={{ ...styles.breakdownCell, textAlign: 'right' }}>
+                                            {campaign.earned ? formatCurrency(campaign.earned) : '-'}
                                           </td>
                                         </tr>
                                       );

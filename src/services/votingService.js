@@ -330,12 +330,10 @@ export const closeVotingSession = async (sessionId) => {
       throw new Error('Session is already closed');
     }
 
-    // 1. Determine Winner
+    // 1. Determine Winner (for record keeping)
     let winner = null;
     let maxVotes = -1;
 
-    // Simple max votes logic. In case of tie, first one wins (or random if we shuffled).
-    // Ideally we should handle ties explicitly, but for now this suffices.
     sessionData.campaigns.forEach((c) => {
       if ((c.votes || 0) > maxVotes) {
         maxVotes = c.votes || 0;
@@ -344,22 +342,47 @@ export const closeVotingSession = async (sessionId) => {
     });
 
     if (!winner) {
-      // Should not happen if there are campaigns, but handle gracefully
       console.warn('No winner found, picking random');
       winner = sessionData.campaigns[0];
     }
 
-    // 2. Calculate Pool Total (Recalculate for safety)
-    // Use the helper from donationService to get the actual total from donation records
+    // 2. Calculate Pool Total
     const rawPoolTotal = await getTotalForVotingSession(sessionId);
     const poolTotal = roundCurrency(rawPoolTotal);
 
-    // 3. Close Session & Transfer Funds (Transaction)
+    // 3. Calculate Distribution (Community Base Model)
+    // Option 1: 30% Base Pool (Equal split), 70% Performance Pool (Vote split)
+    const BASE_POOL_PERCENTAGE = 0.30;
+    const PERFORMANCE_POOL_PERCENTAGE = 0.70;
+
+    const basePool = poolTotal * BASE_POOL_PERCENTAGE;
+    const performancePool = poolTotal * PERFORMANCE_POOL_PERCENTAGE;
+
+    const campaignCount = sessionData.campaigns.length;
+    const totalVotes = sessionData.totalVotes || 0;
+
+    const baseSharePerCampaign = campaignCount > 0 ? basePool / campaignCount : 0;
+
+    // Calculate allocation for each campaign
+    const campaignAllocations = sessionData.campaigns.map((c) => {
+      const voteShare = totalVotes > 0 ? (c.votes || 0) / totalVotes : 0;
+      const performanceShare = performancePool * voteShare;
+      const totalAllocation = roundCurrency(baseSharePerCampaign + performanceShare);
+
+      return {
+        ...c,
+        allocation: totalAllocation
+      };
+    });
+
+    // 4. Close Session & Transfer Funds (Transaction)
     await runTransaction(db, async (transaction) => {
-      // Update Campaign
-      const campaignRef = doc(db, 'campaigns', winner.id);
-      transaction.update(campaignRef, {
-        raised: increment(poolTotal),
+      // Update All Campaigns with their allocation
+      campaignAllocations.forEach((c) => {
+        const campaignRef = doc(db, 'campaigns', c.id);
+        transaction.update(campaignRef, {
+          raised: increment(c.allocation),
+        });
       });
 
       // Update Session
@@ -378,15 +401,16 @@ export const closeVotingSession = async (sessionId) => {
         winnerId: winner.id,
         winnerName: winner.name,
         totalAmount: poolTotal,
-        totalVotes: sessionData.totalVotes || 0,
+        totalVotes: totalVotes,
         startDate: sessionData.startDate,
         endDate: sessionData.endDate,
         closedAt: serverTimestamp(),
-        campaigns: sessionData.campaigns.map(c => ({
+        campaigns: campaignAllocations.map(c => ({
           id: c.id,
           name: c.name,
           votes: c.votes || 0,
-          category: c.category || 'General'
+          category: c.category || 'General',
+          earned: c.allocation // Store the earned amount
         }))
       });
     });
