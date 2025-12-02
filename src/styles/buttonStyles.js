@@ -5,11 +5,11 @@ export const BUTTON_COLORS = {
   danger: '#d9534f',
   success: '#5cb85c',
   warning: '#f0ad4e',
-  info: '#5bc0de'
+  info: '#5bc0de',
 };
 
 export const BUTTON_SIZES = {
   sm: '6px 12px',
   md: '8px 18px',
-  lg: '12px 24px'
+  lg: '12px 24px',
 };

@@ -1,35 +1,37 @@
 // scheduled-tasks/notifyVotingStart.js
-const { initializeApp, cert } = require("firebase-admin/app");
-const { getFirestore } = require("firebase-admin/firestore");
-const serviceAccount = require("../dilio-39ba5-firebase-adminsdk-fbsvc-bfea2c47b1.json");
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+const serviceAccount = require('../dilio-39ba5-firebase-adminsdk-fbsvc-bfea2c47b1.json');
 
 initializeApp({
-  credential: cert(serviceAccount)
+  credential: cert(serviceAccount),
 });
 
 const db = getFirestore();
 
 async function runTask() {
   // Get all users
-  const usersSnapshot = await db.collection("users").get();
+  const usersSnapshot = await db.collection('users').get();
 
   // Create a notification for each user
   const batch = db.batch();
-  const notificationsRef = db.collection("notifications");
+  const notificationsRef = db.collection('notifications');
 
   usersSnapshot.forEach((userDoc) => {
     const newNotificationRef = notificationsRef.doc();
     batch.set(newNotificationRef, {
       userId: userDoc.id,
-      type: "voting_started",
-      message: "A new voting session has started!",
+      type: 'voting_started',
+      message: 'A new voting session has started!',
       timestamp: new Date(),
       read: false,
     });
   });
 
   await batch.commit();
-  console.log(`Voting session start notifications sent to ${usersSnapshot.size} users!`);
+  console.log(
+    `Voting session start notifications sent to ${usersSnapshot.size} users!`
+  );
 }
 
 runTask().catch(console.error);

@@ -14,23 +14,24 @@ function showDilioPanel(amount) {
         timestamp: Date.now(),
       },
     },
-    () => console.log("Dilio: pendingPurchase stored:", amount)
+    () => console.log('Dilio: pendingPurchase stored:', amount)
   );
 
-  const panel = document.createElement("div");
-  panel.id = "dilio-panel";
+  const panel = document.createElement('div');
+  panel.id = 'dilio-panel';
 
-  panel.style.position = "fixed";
-  panel.style.bottom = "20px";
-  panel.style.right = "20px";
-  panel.style.zIndex = "2147483647";
-  panel.style.background = "#ffffff";
-  panel.style.borderRadius = "12px";
-  panel.style.boxShadow = "0 8px 20px rgba(0,0,0,0.25)";
-  panel.style.padding = "16px";
-  panel.style.maxWidth = "320px";
-  panel.style.fontFamily = "system-ui, -apple-system, BlinkMacSystemFont, sans-serif";
-  panel.style.fontSize = "14px";
+  panel.style.position = 'fixed';
+  panel.style.bottom = '20px';
+  panel.style.right = '20px';
+  panel.style.zIndex = '2147483647';
+  panel.style.background = '#ffffff';
+  panel.style.borderRadius = '12px';
+  panel.style.boxShadow = '0 8px 20px rgba(0,0,0,0.25)';
+  panel.style.padding = '16px';
+  panel.style.maxWidth = '320px';
+  panel.style.fontFamily =
+    'system-ui, -apple-system, BlinkMacSystemFont, sans-serif';
+  panel.style.fontSize = '14px';
 
   const roundedUp = Math.ceil(amount) - amount;
   const roundedUpDisplay = roundedUp.toFixed(2);
@@ -97,25 +98,33 @@ function showDilioPanel(amount) {
 
   document.body.appendChild(panel);
 
-  document.getElementById("dilio-close").onclick = () => panel.remove();
-  document.getElementById("dilio-skip").onclick = () => panel.remove();
-  document.getElementById("dilio-confirm").onclick = () => {
-    const selectedCampaign = document.getElementById("dilio-campaign-select").value;
-    
+  document.getElementById('dilio-close').onclick = () => panel.remove();
+  document.getElementById('dilio-skip').onclick = () => panel.remove();
+  document.getElementById('dilio-confirm').onclick = () => {
+    const selectedCampaign = document.getElementById(
+      'dilio-campaign-select'
+    ).value;
+
     // Store selection and open extension
-    chrome.storage?.local?.set({ 
-      pendingPurchaseApproved: true,
-      selectedCampaign: selectedCampaign
-    }, () => {
-      console.log("Dilio: user approved round up for campaign:", selectedCampaign);
-      
-      // Open the extension popup
-      chrome.runtime.sendMessage({
-        type: 'OPEN_EXTENSION',
-        selectedCampaign: selectedCampaign
-      });
-    });
-    
+    chrome.storage?.local?.set(
+      {
+        pendingPurchaseApproved: true,
+        selectedCampaign: selectedCampaign,
+      },
+      () => {
+        console.log(
+          'Dilio: user approved round up for campaign:',
+          selectedCampaign
+        );
+
+        // Open the extension popup
+        chrome.runtime.sendMessage({
+          type: 'OPEN_EXTENSION',
+          selectedCampaign: selectedCampaign,
+        });
+      }
+    );
+
     panel.remove();
   };
 }
@@ -125,12 +134,18 @@ function isCheckoutPage() {
   const title = document.title.toLowerCase();
 
   const checkoutPatterns = [
-    'checkout', 'cart', 'basket', 'payment',
-    'order', 'review', 'shipping', 'billing'
+    'checkout',
+    'cart',
+    'basket',
+    'payment',
+    'order',
+    'review',
+    'shipping',
+    'billing',
   ];
 
-  return checkoutPatterns.some(pattern =>
-    url.includes(pattern) || title.includes(pattern)
+  return checkoutPatterns.some(
+    (pattern) => url.includes(pattern) || title.includes(pattern)
   );
 }
 
@@ -143,7 +158,7 @@ function extractAmount() {
 
   let lastAmount = null;
 
-  elements.forEach(el => {
+  elements.forEach((el) => {
     const text = (el.textContent || '').trim().replace(/\s+/g, ' ');
     if (!text) return;
 
@@ -176,16 +191,19 @@ if (isCheckoutPage()) {
   }
 
   const observer = new MutationObserver(() => {
-    const buttons = document.querySelectorAll('button, input[type="submit"], a[class*="button"]');
-    buttons.forEach(button => {
+    const buttons = document.querySelectorAll(
+      'button, input[type="submit"], a[class*="button"]'
+    );
+    buttons.forEach((button) => {
       const text = (button.textContent || '').toLowerCase();
-      if ((text.includes('place order') ||
-        text.includes('complete purchase') ||
-        text.includes('pay now') ||
-        text.includes('checkout') ||
-        text.includes('submit order')) &&
-        !button.dataset.dilioAttached) {
-
+      if (
+        (text.includes('place order') ||
+          text.includes('complete purchase') ||
+          text.includes('pay now') ||
+          text.includes('checkout') ||
+          text.includes('submit order')) &&
+        !button.dataset.dilioAttached
+      ) {
         button.dataset.dilioAttached = 'true';
         console.log('Dilio: Attached listener to button:', text.trim());
 
@@ -197,7 +215,7 @@ if (isCheckoutPage()) {
             chrome.runtime.sendMessage({
               type: 'CHECKOUT_DETECTED',
               amount: freshAmount,
-              url: window.location.href
+              url: window.location.href,
             });
 
             if (!document.getElementById('dilio-panel')) {
@@ -205,7 +223,10 @@ if (isCheckoutPage()) {
               showDilioPanel(freshAmount);
             }
           } else {
-            console.log('Dilio: Skipping panel on click, amount not usable:', freshAmount);
+            console.log(
+              'Dilio: Skipping panel on click, amount not usable:',
+              freshAmount
+            );
           }
         });
       }
@@ -214,18 +235,24 @@ if (isCheckoutPage()) {
 
   observer.observe(document.body, {
     childList: true,
-    subtree: true
+    subtree: true,
   });
 
   setTimeout(() => {
     const laterAmount = extractAmount();
     console.log('Dilio: Amount detected on page load:', laterAmount);
 
-    if (laterAmount && laterAmount > 0 && !document.getElementById('dilio-panel')) {
+    if (
+      laterAmount &&
+      laterAmount > 0 &&
+      !document.getElementById('dilio-panel')
+    ) {
       console.log('Dilio: Showing panel from delayed amount');
       showDilioPanel(laterAmount);
     } else {
-      console.log('Dilio: Skipping delayed panel, amount not usable or panel already present');
+      console.log(
+        'Dilio: Skipping delayed panel, amount not usable or panel already present'
+      );
     }
   }, 2000);
 }

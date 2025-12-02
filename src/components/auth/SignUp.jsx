@@ -1,53 +1,53 @@
 // src/components/auth/SignUp.jsx
-import { useState } from "react";
-import { auth, db } from "../../services/firebase";
-import { createUserWithEmailAndPassword } from "firebase/auth";
-import { doc, setDoc } from "firebase/firestore";
-import Card from "../Card";
-import Input from "../Input";
-import Button from "../Button";
-import { Link } from "react-router-dom";
+import { useState } from 'react';
+import { auth, db } from '../../services/firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import Card from '../Card';
+import Input from '../Input';
+import Button from '../Button';
+import { Link } from 'react-router-dom';
 
 const SignUp = () => {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   // Individual error states for real-time validation
-  const [emailError, setEmailError] = useState("");
-  const [passwordError, setPasswordError] = useState("");
-  const [confirmError, setConfirmError] = useState("");
+  const [emailError, setEmailError] = useState('');
+  const [passwordError, setPasswordError] = useState('');
+  const [confirmError, setConfirmError] = useState('');
 
-  const [generalError, setGeneralError] = useState("");
-  const [successMessage, setSuccessMessage] = useState("");
+  const [generalError, setGeneralError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const validateEmail = (value) => {
-    if (!value.trim().endsWith(".edu")) {
-      setEmailError("Only .edu emails are allowed.");
+    if (!value.trim().endsWith('.edu')) {
+      setEmailError('Only .edu emails are allowed.');
       return false;
     } else {
-      setEmailError("");
+      setEmailError('');
       return true;
     }
   };
 
   const validatePassword = (value) => {
     if (value.length < 6) {
-      setPasswordError("Password must be at least 6 characters.");
+      setPasswordError('Password must be at least 6 characters.');
       return false;
     } else {
-      setPasswordError("");
+      setPasswordError('');
       return true;
     }
   };
 
   const validateConfirmPassword = (value) => {
     if (value !== password) {
-      setConfirmError("Passwords do not match.");
+      setConfirmError('Passwords do not match.');
       return false;
     } else {
-      setConfirmError("");
+      setConfirmError('');
       return true;
     }
   };
@@ -77,8 +77,8 @@ const SignUp = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    setGeneralError("");
-    setSuccessMessage("");
+    setGeneralError('');
+    setSuccessMessage('');
 
     // Final validation before submit
     const isEmailValid = validateEmail(email);
@@ -86,33 +86,37 @@ const SignUp = () => {
     const isConfirmValid = validateConfirmPassword(confirmPassword);
 
     if (!isEmailValid || !isPasswordValid || !isConfirmValid) {
-      setGeneralError("Please fix the errors above before submitting.");
+      setGeneralError('Please fix the errors above before submitting.');
       return;
     }
 
     setLoading(true);
 
     try {
-      const userCred = await createUserWithEmailAndPassword(auth, email, password);
+      const userCred = await createUserWithEmailAndPassword(
+        auth,
+        email,
+        password
+      );
       const uid = userCred.user.uid;
 
       // Create Firestore user profile with default role student
-      await setDoc(doc(db, "users", uid), {
+      await setDoc(doc(db, 'users', uid), {
         email,
-        role: "student",
-        createdAt: Date.now()
+        role: 'student',
+        createdAt: Date.now(),
       });
 
-      setSuccessMessage("Sign Up successful! You can now log in.");
+      setSuccessMessage('Sign Up successful! You can now log in.');
 
       // Reset the form
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
-      setEmailError("");
-      setPasswordError("");
-      setConfirmError("");
-      setGeneralError("");
+      setEmail('');
+      setPassword('');
+      setConfirmPassword('');
+      setEmailError('');
+      setPasswordError('');
+      setConfirmError('');
+      setGeneralError('');
     } catch (err) {
       console.log(err);
       setGeneralError(err.message);
@@ -135,20 +139,20 @@ const SignUp = () => {
     <Card>
       <h2
         style={{
-          fontSize: "1.25rem",
-          marginBottom: "1rem",
-          textAlign: "center",
+          fontSize: '1.25rem',
+          marginBottom: '1rem',
+          textAlign: 'center',
         }}
       >
         Sign Up
       </h2>
       {generalError && (
-        <p style={{ color: "red", marginBottom: 8 }} role="alert">
+        <p style={{ color: 'red', marginBottom: 8 }} role="alert">
           {generalError}
         </p>
       )}
       {successMessage && (
-        <p style={{ color: "green", marginBottom: 8 }}>{successMessage}</p>
+        <p style={{ color: 'green', marginBottom: 8 }}>{successMessage}</p>
       )}
       <form onSubmit={handleSubmit} noValidate>
         <Input
@@ -183,10 +187,10 @@ const SignUp = () => {
           error={confirmError}
         />
         <Button type="submit" disabled={isSubmitDisabled}>
-          {loading ? "Creating..." : "Sign Up"}
+          {loading ? 'Creating...' : 'Sign Up'}
         </Button>
       </form>
-      <div style={{ textAlign: "center", marginTop: 12 }}>
+      <div style={{ textAlign: 'center', marginTop: 12 }}>
         Already have an account? <Link to="/login">Log In</Link>
       </div>
     </Card>

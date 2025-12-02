@@ -10,8 +10,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
       pendingPurchase: {
         amount: request.amount,
         url: request.url,
-        timestamp: Date.now()
-      }
+        timestamp: Date.now(),
+      },
     });
 
     // Show badge to indicate pending donation
@@ -25,7 +25,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.type === 'OPEN_EXTENSION') {
     // Store the selected campaign
     chrome.storage.local.set({
-      selectedCampaign: request.selectedCampaign
+      selectedCampaign: request.selectedCampaign,
     });
 
     // Show badge

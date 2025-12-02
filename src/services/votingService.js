@@ -14,8 +14,13 @@ import {
   limit,
   setDoc,
   deleteDoc,
-} from "firebase/firestore";
-import { db } from "./firebase";
+  runTransaction,
+} from 'firebase/firestore';
+import { db } from './firebase';
+import { getTotalForVotingSession } from './donationService';
+import { roundCurrency, formatDateRange } from '../utils/formatUtils';
+import { addNotification } from './notificationService';
+import { notifyCampaignCompletion } from './campaignService';
 
 /**
  * Get a voting session by its document ID
@@ -24,7 +29,7 @@ import { db } from "./firebase";
  */
 export const getVotingSessionById = async (sessionId) => {
   try {
-    const sessionRef = doc(db, "votingSessions", sessionId);
+    const sessionRef = doc(db, 'votingSessions', sessionId);
     const sessionSnap = await getDoc(sessionRef);
 
     if (!sessionSnap.exists()) {
@@ -33,7 +38,7 @@ export const getVotingSessionById = async (sessionId) => {
 
     return { id: sessionSnap.id, ...sessionSnap.data() };
   } catch (error) {
-    console.error("Error getting voting session by id:", error);
+    console.error('Error getting voting session by id:', error);
     throw error;
   }
 };
@@ -48,11 +53,17 @@ export const getCurrentVotingSession = async () => {
     const weekId = getWeekIdentifier();
 
     // Check if session already exists
-    const sessionRef = doc(db, "votingSessions", weekId);
+    const sessionRef = doc(db, 'votingSessions', weekId);
     const sessionSnap = await getDoc(sessionRef);
 
     if (sessionSnap.exists()) {
-      return { id: sessionSnap.id, ...sessionSnap.data() };
+      const data = sessionSnap.data();
+      if (!data.active) {
+        // throw new Error('Current voting session is closed.');
+        console.warn('Current voting session is closed.');
+        return null;
+      }
+      return { id: sessionSnap.id, ...data };
     }
 
     // Create new session with 5 random campaigns
@@ -64,7 +75,7 @@ export const getCurrentVotingSession = async () => {
       weekId,
       startDate: startDate.getTime(),
       endDate: endDate.getTime(),
-      campaigns: campaigns.map(c => ({
+      campaigns: campaigns.map((c) => ({
         id: c.id,
         name: c.name,
         description: c.description,
@@ -72,6 +83,7 @@ export const getCurrentVotingSession = async () => {
         votes: 0,
       })),
       totalVotes: 0,
+      poolAmount: 0,
       active: true,
       createdAt: serverTimestamp(),
     };
@@ -79,7 +91,7 @@ export const getCurrentVotingSession = async () => {
     await setDoc(sessionRef, newSession);
     return { id: weekId, ...newSession };
   } catch (error) {
-    console.error("Error getting voting session:", error);
+    console.error('Error getting voting session:', error);
     throw error;
   }
 };
@@ -91,21 +103,23 @@ export const getCurrentVotingSession = async () => {
  */
 export const getPastVotingSessions = async (count = 4) => {
   try {
-    const currentWeekId = getWeekIdentifier();
-
     const sessionsQuery = query(
-      collection(db, "votingSessions"),
-      orderBy("createdAt", "desc"),
-      limit(count + 1)
+      collection(db, 'votingSessions'),
+      where('active', '==', false),
+      orderBy('createdAt', 'desc'),
+      limit(count)
     );
     const snapshot = await getDocs(sessionsQuery);
 
-    return snapshot.docs
-      .map(doc => ({ id: doc.id, ...doc.data() }))
-      .filter(session => session.id !== currentWeekId)
-      .slice(0, count);
+    const sessions = snapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
+
+    // Sort by startDate descending
+    return sessions.sort((a, b) => b.startDate - a.startDate);
   } catch (error) {
-    console.error("Error getting past sessions:", error);
+    console.error('Error getting past sessions:', error);
     return [];
   }
 };
@@ -117,13 +131,13 @@ export const getPastVotingSessions = async (count = 4) => {
  */
 const getRandomCampaigns = async (count = 5) => {
   try {
-    // Get all approved campaigns
+    // Get approved campaigns
     const campaignsQuery = query(
-      collection(db, "campaigns"),
-      where("status", "==", "approved")
+      collection(db, 'campaigns'),
+      where('status', '==', 'approved')
     );
     const snapshot = await getDocs(campaignsQuery);
-    let allCampaigns = snapshot.docs.map(doc => ({
+    let allCampaigns = snapshot.docs.map((doc) => ({
       id: doc.id,
       ...doc.data(),
     }));
@@ -133,7 +147,7 @@ const getRandomCampaigns = async (count = 5) => {
 
     // Filter out recently used campaigns if we have enough options
     let availableCampaigns = allCampaigns.filter(
-      c => !recentlyUsed.includes(c.id)
+      (c) => !recentlyUsed.includes(c.id)
     );
 
     // If not enough available campaigns, use all campaigns
@@ -145,7 +159,7 @@ const getRandomCampaigns = async (count = 5) => {
     const shuffled = availableCampaigns.sort(() => Math.random() - 0.5);
     return shuffled.slice(0, Math.min(count, shuffled.length));
   } catch (error) {
-    console.error("Error getting random campaigns:", error);
+    console.error('Error getting random campaigns:', error);
     return [];
   }
 };
@@ -158,21 +172,21 @@ const getRandomCampaigns = async (count = 5) => {
 const getRecentlyUsedCampaigns = async (weeksBack = 3) => {
   try {
     const sessionsQuery = query(
-      collection(db, "votingSessions"),
-      orderBy("createdAt", "desc"),
+      collection(db, 'votingSessions'),
+      orderBy('createdAt', 'desc'),
       limit(weeksBack)
     );
     const snapshot = await getDocs(sessionsQuery);
 
     const usedIds = new Set();
-    snapshot.docs.forEach(doc => {
+    snapshot.docs.forEach((doc) => {
       const campaigns = doc.data().campaigns || [];
-      campaigns.forEach(c => usedIds.add(c.id));
+      campaigns.forEach((c) => usedIds.add(c.id));
     });
 
     return Array.from(usedIds);
   } catch (error) {
-    console.error("Error getting recently used campaigns:", error);
+    console.error('Error getting recently used campaigns:', error);
     return [];
   }
 };
@@ -187,32 +201,32 @@ export const submitVote = async (userId, campaignId, sessionId) => {
   try {
     // Check if user already voted
     const votesQuery = query(
-      collection(db, "votes"),
-      where("userId", "==", userId),
-      where("sessionId", "==", sessionId)
+      collection(db, 'votes'),
+      where('userId', '==', userId),
+      where('sessionId', '==', sessionId)
     );
     const existingVotes = await getDocs(votesQuery);
 
     let oldCampaignId = null;
     let voteDocId = null;
 
-    // If user has voted, get the old campaign ID and vote doc ID
+    // If user has voted, get old details
     if (!existingVotes.empty) {
       const oldVote = existingVotes.docs[0];
       oldCampaignId = oldVote.data().campaignId;
       voteDocId = oldVote.id;
 
-      // If voting for the same campaign, no need to update
+      // Same campaign, no update needed
       if (oldCampaignId === campaignId) {
         return true;
       }
 
       // Delete the old vote document
-      await deleteDoc(doc(db, "votes", voteDocId));
+      await deleteDoc(doc(db, 'votes', voteDocId));
     }
 
     // Add new vote
-    await addDoc(collection(db, "votes"), {
+    await addDoc(collection(db, 'votes'), {
       userId,
       campaignId,
       sessionId,
@@ -220,12 +234,12 @@ export const submitVote = async (userId, campaignId, sessionId) => {
     });
 
     // Update campaign vote counts in session
-    const sessionRef = doc(db, "votingSessions", sessionId);
+    const sessionRef = doc(db, 'votingSessions', sessionId);
     const sessionSnap = await getDoc(sessionRef);
 
     if (sessionSnap.exists()) {
       const sessionData = sessionSnap.data();
-      const updatedCampaigns = sessionData.campaigns.map(c => {
+      const updatedCampaigns = sessionData.campaigns.map((c) => {
         if (c.id === campaignId) {
           // Increment vote for new campaign
           return { ...c, votes: (c.votes || 0) + 1 };
@@ -250,7 +264,7 @@ export const submitVote = async (userId, campaignId, sessionId) => {
 
     return true;
   } catch (error) {
-    console.error("Error submitting vote:", error);
+    console.error('Error submitting vote:', error);
     throw error;
   }
 };
@@ -264,9 +278,9 @@ export const submitVote = async (userId, campaignId, sessionId) => {
 export const getUserVote = async (userId, sessionId) => {
   try {
     const votesQuery = query(
-      collection(db, "votes"),
-      where("userId", "==", userId),
-      where("sessionId", "==", sessionId)
+      collection(db, 'votes'),
+      where('userId', '==', userId),
+      where('sessionId', '==', sessionId)
     );
     const snapshot = await getDocs(votesQuery);
 
@@ -279,7 +293,7 @@ export const getUserVote = async (userId, sessionId) => {
       ...snapshot.docs[0].data(),
     };
   } catch (error) {
-    console.error("Error getting user vote:", error);
+    console.error('Error getting user vote:', error);
     return null;
   }
 };
@@ -295,8 +309,199 @@ export const hasUserVoted = async (userId, sessionId) => {
     const vote = await getUserVote(userId, sessionId);
     return vote !== null;
   } catch (error) {
-    console.error("Error checking vote status:", error);
+    console.error('Error checking vote status:', error);
     return false;
+  }
+};
+
+/**
+ * Closes a voting session, determines a winner, calculates the final pool amount,
+ * and updates the campaign, session, and creates a weekly report.
+ * @param {string} sessionId - The ID of the voting session to close.
+ * @returns {Object} An object containing success status, winner details, and final pool amount.
+ * @throws {Error} If the session is not found, already closed, or an error occurs during the process.
+ */
+export const closeVotingSession = async (sessionId) => {
+  try {
+    const sessionRef = doc(db, 'votingSessions', sessionId);
+    const sessionSnap = await getDoc(sessionRef);
+
+    if (!sessionSnap.exists()) {
+      throw new Error('Session not found');
+    }
+
+    const sessionData = sessionSnap.data();
+    if (!sessionData.active) {
+      throw new Error('Session is already closed');
+    }
+
+    // 1. Determine Winner
+    let winner = null;
+    let maxVotes = -1;
+
+    sessionData.campaigns.forEach((c) => {
+      if ((c.votes || 0) > maxVotes) {
+        maxVotes = c.votes || 0;
+        winner = c;
+      }
+    });
+
+    if (!winner) {
+      console.warn('No winner found, picking random');
+      winner = sessionData.campaigns[0];
+    }
+
+    // 2. Calculate Pool Total
+    const rawPoolTotal = await getTotalForVotingSession(sessionId);
+    const poolTotal = roundCurrency(rawPoolTotal);
+
+    // 3. Calculate Distribution (Community Base Model)
+    // Distribution Option: 30% Base Pool (Equal split), 70% Performance Pool (Vote split)
+    const BASE_POOL_PERCENTAGE = 0.3;
+    const PERFORMANCE_POOL_PERCENTAGE = 0.7;
+
+    const basePool = poolTotal * BASE_POOL_PERCENTAGE;
+    const performancePool = poolTotal * PERFORMANCE_POOL_PERCENTAGE;
+
+    const campaignCount = sessionData.campaigns.length;
+    const totalVotes = sessionData.totalVotes || 0;
+
+    const baseSharePerCampaign =
+      campaignCount > 0 ? basePool / campaignCount : 0;
+
+    // Calculate allocation for each campaign
+    const campaignAllocations = sessionData.campaigns.map((c) => {
+      const voteShare = totalVotes > 0 ? (c.votes || 0) / totalVotes : 0;
+      const performanceShare = performancePool * voteShare;
+      const totalAllocation = roundCurrency(
+        baseSharePerCampaign + performanceShare
+      );
+
+      return {
+        ...c,
+        allocation: totalAllocation,
+      };
+    });
+
+    // 4. Close Session & Transfer Funds (Transaction)
+    const completedCampaignIds = await runTransaction(
+      db,
+      async (transaction) => {
+        // Step 1: READ all campaign data first
+        const campaignReads = await Promise.all(
+          campaignAllocations.map(async (c) => {
+            const campaignRef = doc(db, 'campaigns', c.id);
+            const campaignSnap = await transaction.get(campaignRef);
+            if (!campaignSnap.exists()) {
+              throw new Error(`Campaign ${c.id} not found`);
+            }
+            return {
+              id: c.id,
+              ref: campaignRef,
+              data: campaignSnap.data(),
+              allocation: c.allocation,
+            };
+          })
+        );
+
+        // Step 2: Calculate updates and completion status
+        const completedIds = [];
+        const updates = [];
+
+        for (const item of campaignReads) {
+          const currentRaised = Number(item.data.raised) || 0;
+          const newRaised = roundCurrency(currentRaised + item.allocation);
+          const goal = Number(item.data.goal) || 0;
+          const isCompleted =
+            newRaised >= goal && item.data.status !== 'completed';
+
+          if (isCompleted) {
+            completedIds.push(item.id);
+          }
+
+          updates.push({
+            ref: item.ref,
+            newRaised,
+            isCompleted,
+          });
+        }
+
+        // Step 3: WRITE all updates
+        for (const update of updates) {
+          const updateData = {
+            raised: update.newRaised,
+          };
+          if (update.isCompleted) {
+            updateData.status = 'completed';
+            updateData.completedAt = serverTimestamp();
+          }
+          transaction.update(update.ref, updateData);
+        }
+
+        // Update Session
+        transaction.update(sessionRef, {
+          active: false,
+          winnerId: winner.id,
+          finalPoolAmount: poolTotal,
+          closedAt: serverTimestamp(),
+        });
+
+        // Create Weekly Report
+        const reportRef = doc(db, 'weeklyReports', sessionData.weekId);
+        transaction.set(reportRef, {
+          weekId: sessionData.weekId,
+          sessionId: sessionId,
+          winnerId: winner.id,
+          winnerName: winner.name,
+          totalAmount: poolTotal,
+          totalVotes: totalVotes,
+          startDate: sessionData.startDate,
+          endDate: sessionData.endDate,
+          closedAt: serverTimestamp(),
+          campaigns: campaignAllocations.map((c) => ({
+            id: c.id,
+            name: c.name,
+            votes: c.votes || 0,
+            category: c.category || 'General',
+            earned: c.allocation, // Store the earned amount
+          })),
+        });
+
+        return completedIds;
+      }
+    );
+
+    // Notify Completed Campaigns
+    if (completedCampaignIds && completedCampaignIds.length > 0) {
+      for (const campaignId of completedCampaignIds) {
+        await notifyCampaignCompletion(campaignId);
+      }
+    }
+
+    // 5. Notify the Winner (After Transaction)
+    try {
+      const winnerCampaignDoc = await getDoc(doc(db, 'campaigns', winner.id));
+      console.log('Winner Campaign Doc:', winnerCampaignDoc);
+      if (winnerCampaignDoc.exists()) {
+        const winnerData = winnerCampaignDoc.data();
+        console.log('Winner Data:', winnerData);
+        if (winnerData.organizerId) {
+          console.log('Sending win notification to:', winnerData.organizerId);
+          await addNotification(
+            winnerData.organizerId,
+            'campaign_win',
+            `🎉 Congratulations! Your campaign "${winner.name}" won the weekly voting for this week (${formatDateRange(sessionData.startDate, sessionData.endDate)})!`
+          );
+        }
+      }
+    } catch (notifyError) {
+      console.error('Error sending win notification:', notifyError);
+    }
+
+    return { success: true, winner, poolTotal };
+  } catch (error) {
+    console.error('Error closing voting session:', error);
+    throw error;
   }
 };
 

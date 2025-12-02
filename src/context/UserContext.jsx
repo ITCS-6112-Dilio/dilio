@@ -1,8 +1,8 @@
 // src/context/UserContext.jsx
-import { createContext, useContext, useEffect, useState } from "react";
-import { auth, db } from "../services/firebase";
-import { onAuthStateChanged } from "firebase/auth";
-import { doc, getDoc } from "firebase/firestore";
+import { createContext, useContext, useEffect, useState } from 'react';
+import { auth, db } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
+import { doc, getDoc } from 'firebase/firestore';
 
 const UserContext = createContext();
 
@@ -16,10 +16,10 @@ export const UserProvider = ({ children }) => {
 
   const loadRole = async (uid) => {
     try {
-      const snap = await getDoc(doc(db, "users", uid));
+      const snap = await getDoc(doc(db, 'users', uid));
       return snap.exists() ? snap.data() : {};
     } catch (err) {
-      console.error("Error loading user role:", err);
+      console.error('Error loading user role:', err);
       return {};
     }
   };
@@ -40,7 +40,7 @@ export const UserProvider = ({ children }) => {
         displayName: firebaseUser.displayName,
         photoURL: firebaseUser.photoURL,
         emailVerified: firebaseUser.emailVerified,
-        role: profile.role || "user",
+        role: profile.role || 'user',
       });
       setLoading(false);
     });
